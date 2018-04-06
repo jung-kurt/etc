@@ -9,17 +9,22 @@ import (
 	"time"
 )
 
+// Address is used specify a network address. It includes JSON marshaling and
+// unmarshaling methods to facilitate use with JSON data.
 type Address string
 
+// String implements the fmt Stringer interface.
 func (a Address) String() string {
 	return string(a)
 }
 
+// MarshalJSON implements the encoding/json Marshaler interface.
 func (a Address) MarhsalJSON() (buf []byte, err error) {
 	buf = []byte("\"" + string(a) + "\"")
 	return
 }
 
+// UnmarshalJSON implements the encoding/json Unmarshaler interface.
 func (a *Address) UnmarshalJSON(buf []byte) (err error) {
 	str := string(buf[1 : len(buf)-1])
 	_, _, err = ParseAddrPort(str)
@@ -29,21 +34,28 @@ func (a *Address) UnmarshalJSON(buf []byte) (err error) {
 	return
 }
 
+// Duration is used specify durations of time. It includes JSON marshaling and
+// unmarshaling methods to facilitate use with JSON data.
 type Duration time.Duration
 
+// Dur returns the time.Duration value of the value specified by the Duration
+// receiver.
 func (d Duration) Dur() time.Duration {
 	return time.Duration(d)
 }
 
+// String implements the fmt Stringer interface.
 func (d Duration) String() string {
 	return d.Dur().String()
 }
 
+// MarshalJSON implements the encoding/json Marshaler interface.
 func (d Duration) MarshalJSON() (buf []byte, err error) {
 	buf = []byte("\"" + d.String() + "\"")
 	return
 }
 
+// UnmarshalJSON implements the encoding/json Unmarshaler interface.
 func (d *Duration) UnmarshalJSON(buf []byte) (err error) {
 	var td time.Duration
 	td, err = time.ParseDuration(string(buf[1 : len(buf)-1]))
@@ -53,6 +65,8 @@ func (d *Duration) UnmarshalJSON(buf []byte) (err error) {
 	return
 }
 
+// Distance is used specify measurable distances. It includes JSON marshaling
+// and unmarshaling methods to facilitate use with JSON data.
 type Distance float64
 
 // In returns the receiver value in inches
@@ -60,10 +74,12 @@ func (d Distance) In() float64 {
 	return float64(d)
 }
 
+// String implements the fmt Stringer interface.
 func (d Distance) String() string {
 	return fmt.Sprintf("%fin", float64(d))
 }
 
+// MarshalJSON implements the encoding/json Marshaler interface.
 func (d Distance) MarshalJSON() (buf []byte, err error) {
 	buf = []byte("\"" + d.String() + "\"")
 	return
@@ -71,6 +87,7 @@ func (d Distance) MarshalJSON() (buf []byte, err error) {
 
 var reDistance = regexp.MustCompile("^(\\d*\\.?\\d*)(m|mm|cm|in|inch|ft|foot|'|\")$")
 
+// UnmarshalJSON implements the encoding/json Unmarshaler interface.
 func (d *Distance) UnmarshalJSON(buf []byte) (err error) {
 	var match []string
 	var str string
