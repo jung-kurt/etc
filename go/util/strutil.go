@@ -1,5 +1,6 @@
 package util
 
-func hello(name string) string {
+// Hello returns a personalized greeting
+func Hello(name string) string {
 	return "Hello, " + name
 }
