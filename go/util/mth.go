@@ -39,7 +39,7 @@ func (eq LinearEquationType) Perpendicular(x float64) (p LinearEquationType) {
 }
 
 // LinearY returns the value of the linear function defined by intercept and
-// slope at the specifed x value.
+// slope at the specified x value.
 func LinearY(slope, intercept, x float64) (y float64) {
 	y = slope*x + intercept
 	return
