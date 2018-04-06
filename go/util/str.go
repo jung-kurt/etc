@@ -19,7 +19,7 @@ func (a Address) String() string {
 }
 
 // MarshalJSON implements the encoding/json Marshaler interface.
-func (a Address) MarhsalJSON() (buf []byte, err error) {
+func (a Address) MarshalJSON() (buf []byte, err error) {
 	buf = []byte("\"" + string(a) + "\"")
 	return
 }
