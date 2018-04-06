@@ -22,3 +22,18 @@ func (r *RangeType) Set(val float64, init bool) {
 		}
 	}
 }
+
+// LinearEquationType describes a line with its slope and intercept
+type LinearEquationType struct {
+	Slope, Intercept float64
+}
+
+// Perpendicular returns an equation that is perpendicular to eq and intersects
+// it at x.
+func (eq LinearEquationType) Perpendicular(x float64) (p LinearEquationType) {
+	if eq.Slope != 0 {
+		p.Slope = -1 / eq.Slope
+		p.Intercept = (eq.Slope*x + eq.Intercept) - p.Slope*x
+	}
+	return
+}
