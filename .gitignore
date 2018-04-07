@@ -1,4 +1,5 @@
 *.0
 coverage
+coverage.html
 private
 *.swp
