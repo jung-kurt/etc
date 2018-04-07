@@ -1,9 +1,11 @@
 package util
 
 import (
+	"fmt"
 	"math"
 
 	"gonum.org/v1/gonum/optimize"
+	"gonum.org/v1/gonum/stat"
 )
 
 // PairType defines a two-dimensional coordianate.
@@ -202,4 +204,72 @@ func (avg *AverageType) Add(val, weight float64) {
 // Value returns the current average of submitted values
 func (avg AverageType) Value() float64 {
 	return avg.value
+}
+
+// LinearFitType groups together the slope, intercept, coefficient of
+// determination, and root-mean-square average deviation of a regression line.
+type LinearFitType struct {
+	Eq       LinearEquationType
+	RSquared float64
+	RMS      float64
+}
+
+func f3(val float64) string {
+	return Float64ToStrSig(val, ".", ",", 3, 3)
+}
+
+// Strings implements the fmt Stringer interface.
+func (fit LinearFitType) String() string {
+	var b float64
+	var op string
+
+	b = fit.Eq.Intercept
+	if b < 0 {
+		b = -b
+		op = "-"
+	} else {
+		op = "+"
+	}
+	return fmt.Sprintf("y(x) = %s * x %s %s (r squared %s, RMS %s)",
+		f3(fit.Eq.Slope), op, f3(b), f3(fit.RSquared), f3(fit.RMS))
+}
+
+// RootMeanSquareLinear returns the RMS value for the specified regression
+// variables.
+func RootMeanSquareLinear(xList, yList []float64, intercept, slope float64) (rms float64) {
+	count := len(xList)
+	if count > 0 && count == len(yList) {
+		for j := 0; j < count; j++ {
+			yEst := xList[j]*slope + intercept
+			diff := yEst - yList[j]
+			rms += diff * diff
+		}
+		rms = math.Sqrt(rms / float64(count))
+	}
+	return
+}
+
+// RootMeanSquare returns the RMS value for the specified slice of values. From
+// https://en.wikipedia.org/wiki/Root_mean_square: In Estimation theory, the
+// root mean square error of an estimator is a measure of the imperfection of
+// the fit of the estimator to the data.
+func RootMeanSquare(list []float64) (rms float64) {
+	count := len(list)
+	if count > 0 {
+		for _, val := range list {
+			rms += val * val
+		}
+		rms = math.Sqrt(rms / float64(count))
+	}
+	return
+}
+
+// LinearFit return the slope, intercept, r-squared values, and RMS value for
+// the least squares regression fit of the points specifed by xList and yList.
+func LinearFit(xList, yList []float64) (le LinearFitType) {
+	le.Eq.Intercept, le.Eq.Slope = stat.LinearRegression(xList, yList, nil, false)
+	le.RSquared = stat.RSquared(xList, yList, nil, le.Eq.Intercept, le.Eq.Slope)
+	le.RMS = RootMeanSquareLinear(xList, yList, le.Eq.Intercept, le.Eq.Slope)
+	// logf("RSquared: Gonum %.3f, local %.3f", le.RSquared, rSquared(xList, yList, le.Eq.Intercept, le.Eq.Slope))
+	return
 }
