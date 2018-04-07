@@ -1,5 +1,116 @@
 package util
 
+import (
+	"math"
+
+	"gonum.org/v1/gonum/optimize"
+)
+
+// PairType defines a two-dimensional coordianate.
+type PairType struct {
+	X, Y float64
+}
+
+// Cluster breaks apart pairs into zero or more slices that each contain at
+// least minPts pairs and have gaps between X values no greater than gapX.
+// Elements in pairs must be ordered from low X value to high.
+func Cluster(pairs []PairType, minPts int, gapX float64) [][]PairType {
+	var ln int
+	var clList [][]PairType
+	var list []PairType
+
+	list = make([]PairType, 0, 32)
+
+	place := func() {
+		// list has contiguous points; discard if fewer than minPts
+		if len(list) >= minPts {
+			clList = append(clList, list)
+		}
+		list = make([]PairType, 0, 32)
+	}
+
+	for _, pr := range pairs {
+		ln = len(list)
+		if ln == 0 {
+			list = append(list, pr)
+		} else if pr.X < list[ln-1].X+gapX {
+			list = append(list, pr)
+		} else {
+			place()
+			list = append(list, pr)
+		}
+	}
+	place()
+	return clList
+}
+
+// DownhillSimplex finds the lowest value reported by fnc. The number of
+// dimensions is specified by the number of elements in init, the initial
+// location. The same number of elements will be passed to fnc, the callback
+// function, when probing. The final result, if err is nil, will contain this
+// number of elements as well. Two parameters can be adjusted to avoid
+// converging on suboptimal local minima: len specifies the simplex size, and
+// expansion (some value greater than 1) specifies the multiplier used when
+// expanding the simplex.
+func DownhillSimplex(fnc func(x []float64) float64, init []float64, len, expansion float64) (res []float64, err error) {
+	var prb optimize.Problem
+	var r *optimize.Result
+
+	prb.Func = fnc
+	r, err = optimize.Local(prb, init, nil, &optimize.NelderMead{
+		SimplexSize: len,
+		Expansion:   expansion, // 1.25,
+	})
+	if err == nil {
+		res = r.X
+	}
+	return
+}
+
+// BoundingBox returns the smallest and greatest values of X and Y in the
+// specified slice of coordinates.
+func BoundingBox(pairs []PairType) (lf, rt, tp, bt float64) {
+	var xr, yr RangeType
+
+	for j, pr := range pairs {
+		xr.Set(pr.X, j == 0)
+		yr.Set(pr.Y, j == 0)
+	}
+	return xr.Min, xr.Max, yr.Max, yr.Min
+}
+
+// Center uses the downhill simplex method to calculate the center of a circle
+// of known radius to a set of observed points specified by pairs.
+func Center(pairs []PairType, radius float64) (x, y float64, err error) {
+	var res []float64
+	var count = float64(len(pairs))
+
+	centerFnc := func(x []float64) (val float64) {
+		var alpha, beta float64
+		alpha = x[0]
+		beta = x[1]
+		for _, pr := range pairs {
+			xa := pr.X - alpha
+			yb := pr.Y - beta
+			e := math.Sqrt(xa*xa+yb*yb) - radius
+			val += e * e
+		}
+		return
+	}
+
+	if count > 0 {
+		lf, rt, tp, bt := BoundingBox(pairs)
+		res, err = DownhillSimplex(centerFnc, []float64{(lf + rt) / 2, bt + bt - tp}, (rt-lf)/32, 1.2)
+		if err == nil {
+			x = res[0]
+			y = res[1]
+		}
+	} else {
+		err = errf("insufficient number of points to locate center")
+	}
+	return
+}
+
 // RangeType holds the minimum and maximum values of a range.
 type RangeType struct {
 	Min, Max float64
