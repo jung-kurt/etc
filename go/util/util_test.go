@@ -26,7 +26,7 @@ import (
 
 // This example demonstrates float formatting.
 // page-breaking.
-func ExampleFormat64ToStrSig() {
+func ExampleFloat64ToStrSig() {
 	var val float64
 	var str string
 	var buf bytes.Buffer

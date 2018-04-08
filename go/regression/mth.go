@@ -94,7 +94,7 @@ func Center(pairs []util.PairType, radius float64) (x, y float64, err error) {
 }
 
 // LinearFit return the slope, intercept, r-squared values, and RMS value for
-// the least squares regression fit of the points specifed by xList and yList.
+// the least squares regression fit of the points specified by xList and yList.
 func LinearFit(xList, yList []float64) (le LinearFitType) {
 	le.Eq.Intercept, le.Eq.Slope = stat.LinearRegression(xList, yList, nil, false)
 	le.RSquared = stat.RSquared(xList, yList, nil, le.Eq.Intercept, le.Eq.Slope)
