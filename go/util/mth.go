@@ -176,3 +176,33 @@ func RootMeanSquare(list []float64) (rms float64) {
 	}
 	return
 }
+
+// GeometricMean returns the nth root of the product of the n values in list.
+func GeometricMean(list []float64) (mean float64) {
+	count := len(list)
+	if count > 0 {
+		mean = 1
+		for _, val := range list {
+			mean *= val
+		}
+		if count > 1 {
+			mean = math.Pow(mean, float64(1)/float64(count))
+		}
+	}
+	return
+}
+
+// ArithmeticMean returns the sum of the values in list divided by the number
+// of values.
+func ArithmeticMean(list []float64) (mean float64) {
+	count := len(list)
+	if count > 0 {
+		for _, val := range list {
+			mean += val
+		}
+		if count > 1 {
+			mean /= float64(count)
+		}
+	}
+	return
+}

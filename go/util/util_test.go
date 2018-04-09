@@ -59,3 +59,12 @@ func ExampleFloat64ToStrSig() {
 	// [           -0.000000] [-0.0000003] [-0.00000031] [-0.000000314] [-0.0000003142] [-0.00000031416]
 	// [           -0.000000] [-0.00000003] [-0.000000031] [-0.0000000314] [-0.00000003142] [-0.000000031416]
 }
+
+// This example demonstrates the GeometricMean function
+func ExampleGeometricMean() {
+	list := []float64{3.1, 2.8, 3.0, 2.9, 2.9, 3.7}
+	fmt.Printf("Geometric %.6f, Arithmetic %.6f",
+		util.GeometricMean(list), util.ArithmeticMean(list))
+	// Output:
+	// Geometric 3.053326, Arithmetic 3.066667
+}
