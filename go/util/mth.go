@@ -106,6 +106,32 @@ func (eq LinearEquationType) Perpendicular(x float64) (p LinearEquationType) {
 	return
 }
 
+// PerpendicularPoint returns an equation that is perpendicular to eq and
+// includes the point specified by x and y.
+func (eq LinearEquationType) PerpendicularPoint(x, y float64) (p LinearEquationType) {
+	if eq.Slope != 0 {
+		p.Slope = -1 / eq.Slope
+		p.Intercept = y - p.Slope*x
+	}
+	return
+}
+
+// DistanceToPoint returns the shortest distance from the specified point to
+// eq.
+func (eq LinearEquationType) DistanceToPoint(x, y float64) (d float64) {
+	if eq.Slope != 0 {
+		p := eq.PerpendicularPoint(x, y)
+		xi := (eq.Intercept - p.Intercept) / (p.Slope - eq.Slope)
+		yi := eq.Slope*xi + eq.Intercept
+		dx := xi - x
+		dy := yi - y
+		d = math.Sqrt(dx*dx + dy*dy)
+	} else {
+		d = math.Abs(y - eq.Intercept)
+	}
+	return
+}
+
 // LinearY returns the value of the linear function defined by intercept and
 // slope at the specified x value.
 func LinearY(slope, intercept, x float64) (y float64) {

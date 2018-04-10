@@ -68,3 +68,18 @@ func ExampleGeometricMean() {
 	// Output:
 	// Geometric 3.053326, Arithmetic 3.066667
 }
+
+// This example demonstrates the DistanceToPoint method
+func ExampleLinearEquationType_DistanceToPoint() {
+	le := util.Linear(1, 1, 3, 2)
+	for j := -1; j < 5; j++ {
+		fmt.Printf("%.3f\n", le.DistanceToPoint(float64(j), 2))
+	}
+	// Output:
+	// 1.789
+	// 1.342
+	// 0.894
+	// 0.447
+	// 0.000
+	// 0.447
+}
