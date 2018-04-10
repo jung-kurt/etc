@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -80,6 +81,19 @@ func (r *RangeType) Set(val float64, init bool) {
 // LinearEquationType describes a line with its slope and intercept
 type LinearEquationType struct {
 	Slope, Intercept float64
+}
+
+// String implements the fmt Stringer interface
+func (le LinearEquationType) String() string {
+	var op string
+	switch math.Signbit(le.Intercept) {
+	case true:
+		op = "-"
+		le.Intercept = -le.Intercept
+	default:
+		op = "+"
+	}
+	return fmt.Sprintf("y = %f x %s %f", le.Slope, op, le.Intercept)
 }
 
 // Perpendicular returns an equation that is perpendicular to eq and intersects
