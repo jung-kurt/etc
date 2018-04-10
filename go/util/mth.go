@@ -84,16 +84,16 @@ type LinearEquationType struct {
 }
 
 // String implements the fmt Stringer interface
-func (le LinearEquationType) String() string {
+func (eq LinearEquationType) String() string {
 	var op string
-	switch math.Signbit(le.Intercept) {
+	switch math.Signbit(eq.Intercept) {
 	case true:
 		op = "-"
-		le.Intercept = -le.Intercept
+		eq.Intercept = -eq.Intercept
 	default:
 		op = "+"
 	}
-	return fmt.Sprintf("y = %f x %s %f", le.Slope, op, le.Intercept)
+	return fmt.Sprintf("y = %f x %s %f", eq.Slope, op, eq.Intercept)
 }
 
 // Perpendicular returns an equation that is perpendicular to eq and intersects
