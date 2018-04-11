@@ -4,11 +4,9 @@ package util
 // Cleaned up from https://github.com/pierrre/archivefile (MIT license)
 
 import (
-	zip_impl "archive/zip"
-	// "fmt"
+	"archive/zip"
 	"io"
 	"os"
-	//	"path"
 	"path/filepath"
 	"strings"
 )
@@ -21,13 +19,13 @@ import (
 //
 // If progress is not nil, it is called for each file added to the archive.
 func Archive(inFilePath string, writer io.Writer, progress ProgressFunc) (err error) {
-	var zipWriter *zip_impl.Writer
+	var zipWriter *zip.Writer
 	var zipFileWriter io.Writer
-	var zipHeader *zip_impl.FileHeader
+	var zipHeader *zip.FileHeader
 	var archivePath, relativeFilePath, basePath string
 	var file *os.File
 
-	zipWriter = zip_impl.NewWriter(writer)
+	zipWriter = zip.NewWriter(writer)
 
 	basePath = filepath.Dir(inFilePath)
 
@@ -44,10 +42,10 @@ func Archive(inFilePath string, writer io.Writer, progress ProgressFunc) (err er
 						progress(archivePath)
 					}
 
-					zipHeader, err = zip_impl.FileInfoHeader(fileInfo)
+					zipHeader, err = zip.FileInfoHeader(fileInfo)
 					if err == nil {
 						zipHeader.Name = archivePath
-						zipHeader.Method = zip_impl.Deflate
+						zipHeader.Method = zip.Deflate
 						// fmt.Printf("archive path [%s]\n", archivePath)
 						zipFileWriter, err = zipWriter.CreateHeader(zipHeader)
 						if err == nil {
@@ -95,10 +93,10 @@ func ArchiveFile(inFilePath string, outFilePath string, progress ProgressFunc) (
 //
 // If progress is not nil, it is called for each file extracted from the archive.
 func Unarchive(reader io.ReaderAt, readerSize int64, outFilePath string, progress ProgressFunc) (err error) {
-	var zipReader *zip_impl.Reader
+	var zipReader *zip.Reader
 	var j int
 
-	zipReader, err = zip_impl.NewReader(reader, readerSize)
+	zipReader, err = zip.NewReader(reader, readerSize)
 	if err == nil {
 		for j = 0; j < len(zipReader.File) && err == nil; j++ {
 			err = unarchiveFile(zipReader.File[j], outFilePath, progress)
@@ -126,7 +124,7 @@ func UnarchiveFile(inFilePath string, outFilePath string, progress ProgressFunc)
 	return
 }
 
-func unarchiveFile(zipFile *zip_impl.File, outFilePath string, progress ProgressFunc) (err error) {
+func unarchiveFile(zipFile *zip.File, outFilePath string, progress ProgressFunc) (err error) {
 	var zipFileReader io.ReadCloser
 	var filePath string
 	var file *os.File

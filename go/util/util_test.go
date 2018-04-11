@@ -24,6 +24,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -351,4 +352,50 @@ func ExampleRootMeanSquareLinear() {
 	// Perpendicular: y = -0.757576 x + 262.357576
 	// Shifted equation: y = 1.320000 x - 12.000000
 	// Distance to constant line: 1.000
+}
+
+// Demonstrate archiving a directory
+func ExampleArchive() {
+	var err error
+	const dirStr = "test"
+	const zipStr = "test.zip"
+
+	os.RemoveAll(dirStr)
+	os.Remove(zipStr)
+	err = os.Mkdir(dirStr, 0755)
+	if err == nil {
+		for j := 0; j < 3 && err == nil; j++ {
+			fileStr := filepath.Join(dirStr, fmt.Sprintf("file%02d.txt", j))
+			err = ioutil.WriteFile(fileStr, []byte(fileStr), 0644)
+		}
+		if err == nil {
+			err = util.ArchiveFile(dirStr, "test.zip", func(fileStr string) {
+				fmt.Printf("archiving %s...\n", fileStr)
+			})
+			if err == nil {
+				fmt.Printf("successfully created %s\n", zipStr)
+				os.RemoveAll(dirStr)
+				err = util.UnarchiveFile(zipStr, dirStr, func(fileStr string) {
+					fmt.Printf("extracting %s...\n", fileStr)
+				})
+				if err == nil {
+					fmt.Printf("successfully unarchived %s\n", zipStr)
+				}
+				os.RemoveAll(dirStr)
+				os.Remove(zipStr)
+			}
+		}
+	}
+	if err != nil {
+		fmt.Printf("archive error: %s\n", err)
+	}
+	// Output:
+	// archiving test/file00.txt...
+	// archiving test/file01.txt...
+	// archiving test/file02.txt...
+	// successfully created test.zip
+	// extracting test/file00.txt...
+	// extracting test/file01.txt...
+	// extracting test/file02.txt...
+	// successfully unarchived test.zip
 }
