@@ -85,7 +85,7 @@ func (d Distance) MarshalJSON() (buf []byte, err error) {
 	return
 }
 
-var reDistance = regexp.MustCompile("^(\\d*\\.?\\d*)(m|mm|cm|in|inch|ft|foot|'|\")$")
+var reDistance = regexp.MustCompile(`^(\d*\.?\d*)(m|mm|cm|in|inch|ft|foot|'|")$`)
 
 // UnmarshalJSON implements the encoding/json Unmarshaler interface.
 func (d *Distance) UnmarshalJSON(buf []byte) (err error) {
@@ -98,9 +98,8 @@ func (d *Distance) UnmarshalJSON(buf []byte) (err error) {
 	if match != nil {
 		val, err = strconv.ParseFloat(match[1], 64)
 		if err == nil {
+			// Default is inches; regular expression catches any spurious units
 			switch match[2] {
-			case "in", "inch", `"`:
-				// val already in inches
 			case "m":
 				val *= 39.3701
 			case "mm":
@@ -109,8 +108,6 @@ func (d *Distance) UnmarshalJSON(buf []byte) (err error) {
 				val *= 0.393701
 			case "ft", "foot", "'":
 				val *= 12
-			default:
-				err = errf("unrecognized distance unit \"%s\"", match[2])
 			}
 		}
 	} else {

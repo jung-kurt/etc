@@ -23,19 +23,41 @@ import (
 	"math"
 	"net"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/jung-kurt/etc/go/util"
 )
 
+// Test various responses to network address parse.
+func TestJSON(t *testing.T) {
+	var strList = []string{`{"Dst": "3.5x"}`, `{"Dst": "foo"}`, `{"Wait": "12f"}`}
+	var err error
+	var cfg struct {
+		Dst  util.Distance
+		Wait util.Duration
+	}
+
+	for _, str := range strList {
+		err = util.JSONGet(strings.NewReader(str), &cfg)
+		if err == nil {
+			t.Fatalf("JSON \"%s\" should not have parsed successfully (%s)", str, cfg.Dst)
+		}
+	}
+}
+
 // This example demonstrates JSON handling
 func ExampleJSONPut() {
 	const fileStr = "example.json"
 	type cfgType struct {
-		Addr             util.Address
-		DstA, DstB, DstC util.Distance
+		Addr util.Address
+		DstA, DstB, DstC,
+		DstD, DstE, DstF util.Distance
+		Wait util.Duration
 	}
-	var str = `{"Addr": "10.20.30.40:50","DstA": "3.5in","DstB": "2.54cm","DstC": "72cm"}`
+	var str = `{"Addr": "10.20.30.40:50","DstA": "3.5in","DstB": "2.54cm",
+	"DstC": "72cm", "DstD": "1.23m", "DstE": "0.5ft", "DstF": "48mm",
+	"Wait": "12s"}`
 	var err error
 	var cfg cfgType
 
@@ -44,7 +66,7 @@ func ExampleJSONPut() {
 	}
 
 	showDst := func(lfStr string, val util.Distance) {
-		show(lfStr, "%s", util.Float64ToStrSig(float64(val), ".", ",", 3, 3))
+		show(lfStr, "%s", util.Float64ToStrSig(val.In(), ".", ",", 3, 3))
 	}
 
 	err = ioutil.WriteFile(fileStr, []byte(str), 0644)
@@ -55,6 +77,10 @@ func ExampleJSONPut() {
 			showDst("DstA", cfg.DstA)
 			showDst("DstB", cfg.DstB)
 			showDst("DstC", cfg.DstC)
+			showDst("DstD", cfg.DstD)
+			showDst("DstE", cfg.DstE)
+			showDst("DstF", cfg.DstF)
+			show("Wait", "%.2f", cfg.Wait.Dur().Seconds())
 			err = util.JSONPutFile(fileStr, cfg)
 			if err == nil {
 				os.Remove(fileStr)
@@ -69,6 +95,10 @@ func ExampleJSONPut() {
 	// DstA................3.50
 	// DstB................1.00
 	// DstC................28.3
+	// DstD................48.4
+	// DstE................6.00
+	// DstF................1.89
+	// Wait...............12.00
 }
 
 // This example demonstrates float formatting.
@@ -110,10 +140,10 @@ func ExampleFloat64ToStrSig() {
 // This example demonstrates the GeometricMean function
 func ExampleGeometricMean() {
 	list := []float64{3.1, 2.8, 3.0, 2.9, 2.9, 3.7}
-	fmt.Printf("Geometric %.6f, Arithmetic %.6f",
-		util.GeometricMean(list), util.ArithmeticMean(list))
+	fmt.Printf("Geometric %.6f, Arithmetic %.6f, RMS %.6f",
+		util.GeometricMean(list), util.ArithmeticMean(list), util.RootMeanSquare(list))
 	// Output:
-	// Geometric 3.053326, Arithmetic 3.066667
+	// Geometric 3.053326, Arithmetic 3.066667, RMS 3.081125
 }
 
 // This example demonstrates the DistanceToPoint method
@@ -215,4 +245,22 @@ func ExampleStrDelimit() {
 	// Epilogue..467
 	// G
 	// G
+}
+
+// This example demonstrates the generic sorting function
+func ExampleSort() {
+	var list = []string{"red", "green", "blue"}
+
+	util.Sort(len(list), func(a, b int) bool {
+		return list[a] < list[b]
+	}, func(a, b int) {
+		list[a], list[b] = list[b], list[a]
+	})
+	for _, str := range list {
+		fmt.Println(str)
+	}
+	// Output:
+	// blue
+	// green
+	// red
 }
