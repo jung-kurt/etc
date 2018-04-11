@@ -169,15 +169,11 @@ type AverageType struct {
 // range [0, 1].
 func (avg *AverageType) Add(val, weight float64) {
 	if weight > 0 {
-		if weight < 0 {
-			weight = 0
-		} else if weight > 1 {
+		if weight > 1 {
 			weight = 1
 		}
 		oldWeight := avg.weight
 		avg.weight += weight
-		// 	val = weight*val + (1-weight)*avg.value
-		// 	avg.weight += 1
 		avg.value = (avg.value*oldWeight + val*weight) / avg.weight
 	}
 }

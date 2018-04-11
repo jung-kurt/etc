@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"math/rand"
 	"net"
 	"os"
 	"strings"
@@ -263,4 +264,91 @@ func ExampleSort() {
 	// blue
 	// green
 	// red
+}
+
+// This example demonstrates data point clustering
+func ExampleCluster() {
+	var list []util.PairType
+	var clList [][]util.PairType
+	var x float64
+
+	rnd := rand.New(rand.NewSource(42))
+	for j := 0; j < 100; j++ {
+		x += 6 * rnd.Float64()
+		list = append(list, util.PairType{X: x, Y: x})
+	}
+	clList = util.Cluster(list, 6, 4)
+	for _, list = range clList {
+		fmt.Printf("[")
+		for _, val := range list {
+			fmt.Printf("%8.3f", val.X)
+		}
+		lf, rt, _, _ := util.BoundingBox(list)
+		fmt.Printf("] (%.3f - %.3f)\n", lf, rt)
+	}
+	// Output:
+	// [   2.238   2.634   6.259   7.512   7.775  10.074] (2.238 - 10.074)
+	// [  27.848  29.156  31.326  32.053  36.037  38.834] (27.848 - 38.834)
+	// [  58.879  59.595  61.636  63.355  64.718  68.633  68.885] (58.879 - 68.885)
+	// [ 166.203 169.399 170.803 173.522 175.232 175.467 177.020] (166.203 - 177.020)
+	// [ 223.779 227.606 230.851 233.541 234.132 237.015] (223.779 - 237.015)
+}
+
+// Demonstrate range of values
+func ExampleRangeType() {
+	var rng util.RangeType
+
+	rng.Set(7, true)
+	rng.Set(3, false)
+	rng.Set(8, false)
+	rng.Set(8, false)
+	rng.Set(0, false)
+	rng.Set(2, false)
+	fmt.Printf("Range: %.3f - %.3f\n", rng.Min, rng.Max)
+	// Output:
+	// Range: 0.000 - 8.000
+}
+
+// Demonstrate weighted averages
+func ExampleAverageType() {
+	var ave util.AverageType
+
+	rnd := rand.New(rand.NewSource(42))
+	for j := 0; j < 12; j++ {
+		ave.Add(3+2*rnd.Float64(), 0.2+rnd.Float64())
+	}
+	fmt.Printf("Weighted average: %.3f\n", ave.Value())
+	// Output:
+	// Weighted average: 4.094
+}
+
+// Demonstrate linear regression root mean square
+func ExampleRootMeanSquareLinear() {
+	var xList, yList []float64
+
+	rnd := rand.New(rand.NewSource(42))
+	eq := util.LinearEquationType{Slope: 1.32, Intercept: 54.6}
+	for j := 0; j < 12; j++ {
+		x := float64(j)
+		xList = append(xList, x)
+		y := eq.Slope*x + eq.Intercept + (0.2*rnd.Float64() - 0.1)
+		yList = append(yList, y)
+	}
+	fmt.Printf("RMS: %.3f\n", util.RootMeanSquareLinear(xList, yList, eq.Intercept, eq.Slope))
+	fmt.Printf("Intercept: %.3f\n", util.LinearPointSlope(100, 100, eq.Slope))
+	fmt.Printf("LinearY(12): %.3f\n", util.LinearY(eq.Slope, eq.Intercept, 12))
+	fmt.Printf("Distance to (100, 100): %.3f\n", eq.DistanceToPoint(100, 100))
+	fmt.Printf("Perpendicular: %s\n", eq.Perpendicular(100))
+	eq.Intercept = -12
+	fmt.Printf("Shifted equation: %s\n", eq)
+	ceq := util.LinearEquationType{Slope: 0, Intercept: 5}
+	fmt.Printf("Distance to constant line: %.3f\n", ceq.DistanceToPoint(6, 6))
+	// Output:
+	// RMS: 0.052
+	// Intercept: -32.000
+	// LinearY(12): 70.440
+	// Distance to (100, 100): 52.294
+	// Perpendicular: y = -0.757576 x + 262.357576
+	// Shifted equation: y = 1.320000 x - 12.000000
+	// Distance to constant line: 1.000
 }
