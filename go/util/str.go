@@ -238,6 +238,7 @@ func StrCurrency100(amt100 int64) (str string) {
 // ToUint32 converts the specified string to a 32-bit unsigned integer
 func ToUint32(str string) (v uint32, err error) {
 	var v64 uint64
+	str = strings.Replace(str, ",", "", -1)
 	v64, err = strconv.ParseUint(str, 10, 32)
 	if err == nil {
 		v = uint32(v64)
@@ -248,6 +249,7 @@ func ToUint32(str string) (v uint32, err error) {
 // ToInt32 converts the specified string to a 32-bit signed integer
 func ToInt32(str string) (v int32, err error) {
 	var v64 int64
+	str = strings.Replace(str, ",", "", -1)
 	v64, err = strconv.ParseInt(str, 10, 32)
 	if err == nil {
 		v = int32(v64)
