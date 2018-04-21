@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math"
 	"math/rand"
 	"net"
@@ -398,4 +399,77 @@ func ExampleArchive() {
 	// extracting test/file01.txt...
 	// extracting test/file02.txt...
 	// successfully unarchived test.zip
+}
+
+// Demonstrate the binary read, write, and log routines
+func ExampleBinaryLog() {
+	type recType struct {
+		a uint8
+		b uint16
+		c uint32
+		d uint64
+		e int8
+		f int16
+		g int32
+		h int64
+	}
+	var err error
+
+	show := func(hdrStr string, r recType) {
+		log.Printf("%s", hdrStr)
+		log.Printf("a: %d, b: %d, c: %d, d: %d, e: %d, f: %d, g: %d, h: %d",
+			r.a, r.b, r.c, r.d, r.e, r.f, r.g, r.h)
+	}
+
+	load := func() (sl []byte) {
+		var r recType
+		var buf bytes.Buffer
+		r = recType{a: 12, b: 142, c: 48456, d: 6581, e: -2, f: -765, g: 2776, h: -54232}
+		show("BinaryWrite", r)
+		util.BinaryWrite(&buf, r.a, r.b, r.c, r.d, r.e, r.f, r.g, r.h)
+		sl = buf.Bytes()
+		return
+	}
+
+	log.SetFlags(0)
+	log.SetOutput(os.Stdout)
+	sl := load()
+	log.Printf("packed bytes")
+	util.BinaryLog(sl)
+	var r recType
+	err = util.BinaryRead(bytes.NewReader(sl), &r.a, &r.b, &r.c, &r.d, &r.e, &r.f, &r.g, &r.h)
+	if err == nil {
+		show("BinaryRead", r)
+	} else {
+		log.Printf("error reading packed bytes: %s", err)
+	}
+	// Output:
+	// BinaryWrite
+	// a: 12, b: 142, c: 48456, d: 6581, e: -2, f: -765, g: 2776, h: -54232
+	// packed bytes
+	// 00000000  0c 8e 00 48 bd 00 00 b5  19 00 00 00 00 00 00 fe  |...H............|
+	// 00000000  03 fd d8 0a 00 00 28 2c  ff ff ff ff ff ff        |......(,......|
+	// BinaryRead
+	// a: 12, b: 142, c: 48456, d: 6581, e: -2, f: -765, g: 2776, h: -54232
+}
+
+// Demonstrate the use of the logging mechanism as an io.Writer
+func ExampleLogWriter() {
+	lg := log.New(os.Stdout, "", 0)
+	lw := util.LogWriter(lg)
+	lg.Printf("simple log line")
+	// lw implements the io.Writer interface
+	fmt.Fprintf(lw, "Line one\nLine two\n")
+	fmt.Fprintf(lw, "Line three\n")
+	fmt.Fprintf(lw, "\n")
+	fmt.Fprintf(lw, "\n\nLast line\n")
+	lw.Close()
+	lg.Printf("another simple log line")
+	// Output:
+	// simple log line
+	// Line one
+	// Line two
+	// Line three
+	// Last line
+	// another simple log line
 }
