@@ -464,6 +464,11 @@ func ExampleLogWriter() {
 	fmt.Fprintf(lw, "\n")
 	fmt.Fprintf(lw, "\n\nLast line\n")
 	lw.Close()
+	log.SetFlags(0)
+	log.SetOutput(os.Stdout)
+	lw = util.LogWriter(nil)
+	fmt.Fprintf(lw, "written with log.Print() from the standard library\n")
+	lw.Close()
 	lg.Printf("another simple log line")
 	// Output:
 	// simple log line
@@ -471,5 +476,6 @@ func ExampleLogWriter() {
 	// Line two
 	// Line three
 	// Last line
+	// written with log.Print() from the standard library
 	// another simple log line
 }

@@ -14,7 +14,8 @@ import (
 // called after use. This code was adapted from
 // https://play.golang.org/p/ruQZM8Bhf- In an environment in which p is used by
 // multiple goroutines (such as the standard library log), this can result in
-// interleaved output lines.
+// interleaved output lines. If p is nil, log.Print() from the standard library
+// is used instead.
 func LogWriter(p Printer) io.WriteCloser {
 	pr, pw := io.Pipe()
 	br := bufio.NewReader(pr)
@@ -27,7 +28,11 @@ func LogWriter(p Printer) io.WriteCloser {
 			if err == nil {
 				line = strings.TrimSpace(line)
 				if line != "" {
-					p.Print(line)
+					if p == nil {
+						log.Print(line)
+					} else {
+						p.Print(line)
+					}
 				}
 			}
 		}
