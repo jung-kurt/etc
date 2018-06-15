@@ -3,3 +3,4 @@ coverage
 coverage.html
 private
 *.swp
+log
