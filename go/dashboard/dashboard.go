@@ -169,6 +169,33 @@ func walk(screen tcell.Screen, plainStyle, blockStyle tcell.Style, y, pos, wd in
 	}
 }
 
+func staticRender(style tcell.Style) {
+	scrWd, _ := dsh.screen.Size()
+	var show bool
+	for _, fieldPtr := range dsh.fieldMap {
+		if fieldPtr.item == itemStatic {
+			var rt int
+			lf := fieldPtr.x
+			wd := fieldPtr.wd
+			length := len(fieldPtr.str)
+			if wd <= 0 {
+				rt = scrWd + wd
+			} else {
+				rt = lf + wd
+			}
+			if lf+length < rt {
+				put(style, fieldPtr.x, fieldPtr.y, rt-lf, fieldPtr.str, dsh.blankStr[:rt-length-lf])
+			} else {
+				put(style, fieldPtr.x, fieldPtr.y, rt-lf, fieldPtr.str[:rt-lf])
+			}
+			show = true
+		}
+	}
+	if show {
+		dsh.screen.Show()
+	}
+}
+
 func run() {
 	// var logList [cnLogCount]string
 	// var logPos, logCount int
@@ -178,6 +205,7 @@ func run() {
 	// red := tcell.StyleDefault.Foreground(tcell.ColorRed)
 	// green := tcell.StyleDefault.Foreground(tcell.ColorGreen)
 	// wd, ht := dsh.screen.Size()
+	staticRender(white)
 	loop := true
 	// walkPos := 0
 	// syncCount := 0
@@ -187,6 +215,7 @@ func run() {
 			// log.Printf("internal")
 			switch up.id {
 			case updateScreen:
+				staticRender(white)
 				dsh.screen.Sync()
 			case updateStop:
 				loop = false
@@ -205,7 +234,6 @@ func run() {
 					// log.Printf("dsh.keyval x %d, y %d, wd %d, key %s, val %s", fieldPtr.x,
 					// fieldPtr.y, fieldPtr.wd, fieldPtr.str, up.str)
 					keyval(plain, white, fieldPtr.x, fieldPtr.y, fieldPtr.wd, scrWd, fieldPtr.str, up.str)
-				case itemStatic:
 				case itemLine:
 					// log.Printf("line [%s]", up.str)
 					count := fieldPtr.count
@@ -334,6 +362,21 @@ func RegisterKeyVal(id, x, y, wd int, keyStr string) {
 func UpdateKeyVal(id int, str string) {
 	dsh.updateChan <- updateType{id: id, str: str}
 }
+
+// RegisterStatic registers a dashboard static line with the identifier
+// specified by id. Its coordinates are specified by x and y. The total field's
+// width is specified by wd. A zero value for wd indicates the full width of
+// the screen, and a negative value indicates the position from the right. The
+// static key is specified by keyStr.
+func RegisterStatic(id, x, y, wd int, keyStr string) {
+	register(id, &fieldType{id: id, item: itemStatic, x: x, y: y, wd: wd, str: keyStr})
+}
+
+// UpdateStatic updates the key/value pair specified by id with the value
+// specified by str.
+// func UpdateStatic(id int, str string) {
+//	dsh.updateChan <- updateType{id: id, str: str}
+// }
 
 // Run changes the screen to a dashboard. This function does not return until
 // one of the keys included in the list of quitRunes is pressed. Up until that

@@ -15,6 +15,7 @@ const (
 	cnCount int = iota
 	cnName
 	cnLog
+	cnBanner
 )
 
 func updateName() {
@@ -67,6 +68,7 @@ func Example() {
 	fl, err = os.Create("log")
 	if err == nil {
 		log.SetOutput(fl)
+		dashboard.RegisterStatic(cnBanner, 1, 0, -1, "This is a banner -- more work to do")
 		dashboard.RegisterKeyVal(cnCount, 1, 1, 40, "Count")
 		dashboard.RegisterLine(cnLog, 1, 2, 5)
 		dashboard.RegisterKeyVal(cnName, 1, 7, 40, "Name")
