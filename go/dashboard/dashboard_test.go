@@ -15,7 +15,9 @@ const (
 	cnCount int = iota
 	cnName
 	cnLog
-	cnBanner
+	cnBannerA
+	cnBannerB
+	cnBannerC
 )
 
 func updateName() {
@@ -68,10 +70,12 @@ func Example() {
 	fl, err = os.Create("log")
 	if err == nil {
 		log.SetOutput(fl)
-		dashboard.RegisterStatic(cnBanner, 1, 0, -1, "This is a banner -- more work to do")
+		dashboard.RegisterHeader(cnBannerA, 0, 0, 0, "\\tDashboard (v 0.2)")
 		dashboard.RegisterKeyVal(cnCount, 1, 1, 40, "Count")
 		dashboard.RegisterLine(cnLog, 1, 2, 5)
-		dashboard.RegisterKeyVal(cnName, 1, 7, 40, "Name")
+		dashboard.RegisterHeader(cnBannerC, 1, 7, 40, "\\tDog")
+		dashboard.RegisterKeyVal(cnName, 1, 8, 40, "Name")
+		dashboard.RegisterHeader(cnBannerB, 0, 9, 0, " This is a banner \\t more work to do \\t Press Q to quit ")
 		go updateCount()
 		go updateName()
 		go updateLog()

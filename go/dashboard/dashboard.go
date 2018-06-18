@@ -1,7 +1,7 @@
 package dashboard
 
 import (
-	"bytes"
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -9,28 +9,30 @@ import (
 	"github.com/gdamore/tcell"
 )
 
-// The update channel is used (with the DashboardUpdateXXX() functions as
-// wrappers) to update various dashboard fields. It is ready to receive records
-// as soon as the application is initialized. It is kept open through the
-// termination of the application to prevent panics if the application updates
-// a field after the main dashboard loop has completed.
+// The update channel is used (with the UpdateXXX() functions as wrappers) to
+// update various dashboard fields. It is ready to receive records as soon as
+// the application is initialized. It is kept open through the termination of
+// the application to prevent panics if the application updates a field after
+// the main dashboard loop has completed.
 
 var dsh struct {
 	dotStr     string               // separation for key/value fields
 	diamondStr string               // overflow indictor
 	blankStr   string               // overflow blank string to clear characters of previous string
-	buf        *bytes.Buffer        // formatted string buffer
+	buf        *strings.Builder     // formatted string buffer; accessed only by 'dashboard show' goroutine
 	fieldMap   map[int]fieldPtrType // fields registered by application
+	fieldMtx   sync.Mutex           // mutex for accessing fieldMap
 	updateChan chan updateType      // dashboard updates fields based on events arriving in this channel
 	screen     tcell.Screen         // terminal screen
 	active     bool                 // update channel is active
+	activeMtx  sync.Mutex           // mutex for accessing the active flag
 }
 
 type itemType int
 
 const (
 	itemKeyVal itemType = iota
-	itemStatic
+	itemHeader
 	itemLine
 	itemWalk
 )
@@ -49,7 +51,7 @@ type updateType struct {
 
 type fieldType struct {
 	id      int               // user-defined field identifier
-	item    itemType          // type of field key-value, static, etc
+	item    itemType          // type of field key-value, header, etc
 	str     string            // static string, may include tabs for left, center, right alignment
 	x, y    int               // starting position
 	wd      int               // width of field, 0 for entire line
@@ -71,7 +73,7 @@ func init() {
 	dsh.dotStr = strings.Repeat(".", cnMaxWidth)
 	dsh.diamondStr = strings.Repeat(string(tcell.RuneDiamond), cnMaxWidth)
 	dsh.blankStr = strings.Repeat(" ", cnMaxWidth)
-	dsh.buf = &bytes.Buffer{}
+	dsh.buf = &strings.Builder{}
 	dsh.buf.Grow(4 * cnMaxWidth)
 	dsh.fieldMap = make(map[int]fieldPtrType)
 	dsh.updateChan = make(chan updateType, 256)
@@ -112,8 +114,8 @@ func listen(updateChan chan<- updateType, pollEvent func() tcell.Event, quitRune
 				updateChan <- updateType{internal: true, id: updateScreen}
 			}
 			if rn > 0 {
-				quit, ok := quitMap[rn]
-				if ok && quit {
+				_, ok := quitMap[rn]
+				if ok {
 					loop = false
 				}
 			}
@@ -169,29 +171,66 @@ func walk(screen tcell.Screen, plainStyle, blockStyle tcell.Style, y, pos, wd in
 	}
 }
 
-func staticRender(style tcell.Style) {
+func headerPut(style tcell.Style, scrWd int, fld fieldPtrType) {
+	list := strings.Split(fld.str, "\\t")
+	var gapA, gapB, totalLen int
+	for j := len(list); j < 3; j++ {
+		list = append(list, "")
+	}
+	for j, str := range list {
+		log.Printf("Field %d, string %d: [%s]", fld.id, j, str)
+	}
+	totalLen = len(list[0]) + len(list[1]) + len(list[2])
+	wd := fld.wd
+	if wd <= 0 {
+		wd = scrWd + wd - fld.x
+	}
+	gap := wd - totalLen
+	if gap < 2 {
+		gapA = 1
+		gapB = 1
+	} else {
+		gapA = gap / 2
+		gapB = gap - gapA
+	}
+	dsh.buf.Reset()
+	fmt.Fprintf(dsh.buf, "%s%s%s%s%s", list[0], dsh.blankStr[:gapA], list[1], dsh.blankStr[:gapB], list[2])
+	str := dsh.buf.String()
+	if len(str) > wd {
+		str = str[:wd]
+	}
+	put(style, fld.x, fld.y, scrWd, str)
+
+	// var rt int
+	// lf := fld.x
+	// wd := fld.wd
+	// length := len(fld.str)
+	// if wd <= 0 {
+	// 	rt = scrWd + wd
+	// } else {
+	// 	rt = lf + wd
+	// }
+	// if lf+length < rt {
+	// 	put(style, fld.x, fld.y, rt-lf, fld.str, dsh.blankStr[:rt-length-lf])
+	// } else {
+	// 	put(style, fld.x, fld.y, rt-lf, fld.str[:rt-lf])
+	// }
+}
+
+func headerRender(style tcell.Style) {
+	var list []fieldPtrType
 	scrWd, _ := dsh.screen.Size()
-	var show bool
+	dsh.fieldMtx.Lock()
 	for _, fieldPtr := range dsh.fieldMap {
-		if fieldPtr.item == itemStatic {
-			var rt int
-			lf := fieldPtr.x
-			wd := fieldPtr.wd
-			length := len(fieldPtr.str)
-			if wd <= 0 {
-				rt = scrWd + wd
-			} else {
-				rt = lf + wd
-			}
-			if lf+length < rt {
-				put(style, fieldPtr.x, fieldPtr.y, rt-lf, fieldPtr.str, dsh.blankStr[:rt-length-lf])
-			} else {
-				put(style, fieldPtr.x, fieldPtr.y, rt-lf, fieldPtr.str[:rt-lf])
-			}
-			show = true
+		if fieldPtr.item == itemHeader {
+			list = append(list, fieldPtr)
 		}
 	}
-	if show {
+	dsh.fieldMtx.Unlock()
+	for _, fieldPtr := range list {
+		headerPut(style, scrWd, fieldPtr)
+	}
+	if len(list) > 0 {
 		dsh.screen.Show()
 	}
 }
@@ -202,10 +241,11 @@ func run() {
 	// const left = 1
 	plain := tcell.StyleDefault.Foreground(tcell.ColorYellow)
 	white := tcell.StyleDefault.Foreground(tcell.ColorWhite)
+	banner := tcell.StyleDefault.Foreground(tcell.ColorBlack).Background(tcell.ColorYellow)
 	// red := tcell.StyleDefault.Foreground(tcell.ColorRed)
 	// green := tcell.StyleDefault.Foreground(tcell.ColorGreen)
 	// wd, ht := dsh.screen.Size()
-	staticRender(white)
+	// headerRender(banner)
 	loop := true
 	// walkPos := 0
 	// syncCount := 0
@@ -215,7 +255,7 @@ func run() {
 			// log.Printf("internal")
 			switch up.id {
 			case updateScreen:
-				staticRender(white)
+				headerRender(banner)
 				dsh.screen.Sync()
 			case updateStop:
 				loop = false
@@ -225,7 +265,9 @@ func run() {
 			// var st tcell.Style
 			var fieldPtr fieldPtrType
 			var ok bool
+			dsh.fieldMtx.Lock()
 			fieldPtr, ok = dsh.fieldMap[up.id]
+			dsh.fieldMtx.Unlock()
 			if ok {
 				scrWd, _ := dsh.screen.Size()
 				// log.Printf("good field %d", up.id)
@@ -321,11 +363,10 @@ func run() {
 	// close(dsh.quitChan)
 }
 
-func register(id int, fldPtr fieldPtrType) {
-	var mtx sync.Mutex
-	mtx.Lock()
+func fieldRegister(id int, fldPtr fieldPtrType) {
+	dsh.fieldMtx.Lock()
 	dsh.fieldMap[id] = fldPtr
-	mtx.Unlock()
+	dsh.fieldMtx.Unlock()
 }
 
 // RegisterLine registers a dashboard rolling line field with the identifier
@@ -342,7 +383,7 @@ func RegisterLine(id, x, y, lineCount int) {
 	fld.id = id
 	fld.x = x
 	fld.y = y
-	register(id, &fld)
+	fieldRegister(id, &fld)
 }
 
 // UpdateLine updates the rolling line field specified by id with the str.
@@ -354,7 +395,7 @@ func UpdateLine(id int, str string) {
 // specified by id. Its coordinates are specified by x and y, and the total
 // field's width is specified by wd. The static key is specified by keyStr.
 func RegisterKeyVal(id, x, y, wd int, keyStr string) {
-	register(id, &fieldType{id: id, item: itemKeyVal, x: x, y: y, wd: wd, str: keyStr})
+	fieldRegister(id, &fieldType{id: id, item: itemKeyVal, x: x, y: y, wd: wd, str: keyStr})
 }
 
 // UpdateKeyVal updates the key/value pair specified by id with the value
@@ -363,20 +404,14 @@ func UpdateKeyVal(id int, str string) {
 	dsh.updateChan <- updateType{id: id, str: str}
 }
 
-// RegisterStatic registers a dashboard static line with the identifier
+// RegisterHeader registers a dashboard static line with the identifier
 // specified by id. Its coordinates are specified by x and y. The total field's
 // width is specified by wd. A zero value for wd indicates the full width of
 // the screen, and a negative value indicates the position from the right. The
 // static key is specified by keyStr.
-func RegisterStatic(id, x, y, wd int, keyStr string) {
-	register(id, &fieldType{id: id, item: itemStatic, x: x, y: y, wd: wd, str: keyStr})
+func RegisterHeader(id, x, y, wd int, keyStr string) {
+	fieldRegister(id, &fieldType{id: id, item: itemHeader, x: x, y: y, wd: wd, str: keyStr})
 }
-
-// UpdateStatic updates the key/value pair specified by id with the value
-// specified by str.
-// func UpdateStatic(id int, str string) {
-//	dsh.updateChan <- updateType{id: id, str: str}
-// }
 
 // Run changes the screen to a dashboard. This function does not return until
 // one of the keys included in the list of quitRunes is pressed. Up until that
@@ -390,26 +425,17 @@ func Run(quitRunes ...rune) (err error) {
 		dsh.screen.HideCursor()
 		go listen(dsh.updateChan, dsh.screen.PollEvent, quitRunes...)
 		run()
-		active(true, false)
 		log.Printf("stop\n")
 		dsh.screen.Fini()
 	}
 	return
 }
 
-func active(assign, active bool) (ret bool) {
-	var mtx sync.Mutex
-	mtx.Lock()
-	ret = dsh.active
-	if assign {
-		dsh.active = active
-	}
-	mtx.Unlock()
-	return
-}
-
 // Active returns true if the dashboard is currently active. It may be called
 // safely from other goroutines. It is typically used in application loops.
-func Active() bool {
-	return active(false, false)
+func Active() (active bool) {
+	dsh.activeMtx.Lock()
+	active = dsh.active
+	dsh.activeMtx.Unlock()
+	return
 }
