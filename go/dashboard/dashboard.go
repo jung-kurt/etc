@@ -17,8 +17,9 @@ import (
 
 var dsh struct {
 	dotStr     string               // separation for key/value fields
-	diamondStr string               // overflow indictor
 	blankStr   string               // overflow blank string to clear characters of previous string
+	diamonds   [cnMaxWidth]rune     // overflow indictor
+	lines      [cnMaxWidth]rune     // line made up of horizontal line runes
 	buf        *strings.Builder     // formatted string buffer; accessed only by 'dashboard show' goroutine
 	fieldMap   map[int]fieldPtrType // fields registered by application
 	fieldMtx   sync.Mutex           // mutex for accessing fieldMap
@@ -33,6 +34,7 @@ type itemType int
 const (
 	itemKeyVal itemType = iota
 	itemHeader
+	itemHeaderLine
 	itemLine
 	itemWalk
 )
@@ -69,9 +71,11 @@ const (
 
 func init() {
 	var err error
-
+	for j := 0; j < cnMaxWidth; j++ {
+		dsh.diamonds[j] = tcell.RuneDiamond
+		dsh.lines[j] = tcell.RuneHLine
+	}
 	dsh.dotStr = strings.Repeat(".", cnMaxWidth)
-	dsh.diamondStr = strings.Repeat(string(tcell.RuneDiamond), cnMaxWidth)
 	dsh.blankStr = strings.Repeat(" ", cnMaxWidth)
 	dsh.buf = &strings.Builder{}
 	dsh.buf.Grow(4 * cnMaxWidth)
@@ -124,7 +128,7 @@ func listen(updateChan chan<- updateType, pollEvent func() tcell.Event, quitRune
 	updateChan <- updateType{internal: true, id: updateStop}
 }
 
-func put(style tcell.Style, x, y, scrWd int, strs ...string) {
+func put(style tcell.Style, x, y, scrWd int, strs ...string) (newX int) {
 	for _, str := range strs {
 		for _, r := range str {
 			if x < scrWd {
@@ -133,6 +137,8 @@ func put(style tcell.Style, x, y, scrWd int, strs ...string) {
 			}
 		}
 	}
+	newX = x
+	return
 }
 
 func keyval(styleKey, styleVal tcell.Style, x, y, wd, scrWd int,
@@ -147,7 +153,7 @@ func keyval(styleKey, styleVal tcell.Style, x, y, wd, scrWd int,
 		put(styleKey, x, y, scrWd, keyStr, " ", dsh.dotStr[:wd-2-keyLen-valLen], " ")
 		put(styleVal, x+wd-valLen, y, scrWd, valStr)
 	} else {
-		put(styleKey, x, y, scrWd, dsh.diamondStr[:wd])
+		put(styleKey, x, y, scrWd, string(dsh.diamonds[:wd]))
 	}
 }
 
@@ -171,64 +177,54 @@ func walk(screen tcell.Screen, plainStyle, blockStyle tcell.Style, y, pos, wd in
 	}
 }
 
-func headerPut(style tcell.Style, scrWd int, fld fieldPtrType) {
+func headerPut(boldSt, keySt, valSt tcell.Style, scrWd int, fld fieldPtrType) {
 	list := strings.Split(fld.str, "\\t")
-	var gapA, gapB, totalLen int
+	var gapA, gapB int
 	for j := len(list); j < 3; j++ {
 		list = append(list, "")
 	}
-	for j, str := range list {
-		log.Printf("Field %d, string %d: [%s]", fld.id, j, str)
-	}
-	totalLen = len(list[0]) + len(list[1]) + len(list[2])
+	// for j, str := range list {
+	// 	log.Printf("Field %d, string %d: [%s]", fld.id, j, str)
+	// }
+	totalLen := len(list[0]) + len(list[1]) + len(list[2])
 	wd := fld.wd
 	if wd <= 0 {
 		wd = scrWd + wd - fld.x
 	}
 	gap := wd - totalLen
-	if gap < 2 {
+	if gap < 2 { // tail will be truncated by put()
 		gapA = 1
 		gapB = 1
 	} else {
 		gapA = gap / 2
 		gapB = gap - gapA
 	}
-	dsh.buf.Reset()
-	fmt.Fprintf(dsh.buf, "%s%s%s%s%s", list[0], dsh.blankStr[:gapA], list[1], dsh.blankStr[:gapB], list[2])
-	str := dsh.buf.String()
-	if len(str) > wd {
-		str = str[:wd]
+	if fld.item == itemHeader {
+		dsh.buf.Reset()
+		fmt.Fprintf(dsh.buf, "%s%s%s%s%s", list[0], dsh.blankStr[:gapA], list[1], dsh.blankStr[:gapB], list[2])
+		str := dsh.buf.String()
+		put(boldSt, fld.x, fld.y, scrWd, str)
+	} else {
+		x := put(valSt, fld.x, fld.y, scrWd, list[0])
+		x = put(keySt, x, fld.y, scrWd, string(dsh.lines[:gapA]))
+		x = put(valSt, x, fld.y, scrWd, list[1])
+		x = put(keySt, x, fld.y, scrWd, string(dsh.lines[:gapB]))
+		put(valSt, x, fld.y, scrWd, list[2])
 	}
-	put(style, fld.x, fld.y, scrWd, str)
-
-	// var rt int
-	// lf := fld.x
-	// wd := fld.wd
-	// length := len(fld.str)
-	// if wd <= 0 {
-	// 	rt = scrWd + wd
-	// } else {
-	// 	rt = lf + wd
-	// }
-	// if lf+length < rt {
-	// 	put(style, fld.x, fld.y, rt-lf, fld.str, dsh.blankStr[:rt-length-lf])
-	// } else {
-	// 	put(style, fld.x, fld.y, rt-lf, fld.str[:rt-lf])
-	// }
 }
 
-func headerRender(style tcell.Style) {
+func headerRender(boldSt, keySt, valSt tcell.Style) {
 	var list []fieldPtrType
 	scrWd, _ := dsh.screen.Size()
 	dsh.fieldMtx.Lock()
 	for _, fieldPtr := range dsh.fieldMap {
-		if fieldPtr.item == itemHeader {
+		if fieldPtr.item == itemHeader || fieldPtr.item == itemHeaderLine {
 			list = append(list, fieldPtr)
 		}
 	}
 	dsh.fieldMtx.Unlock()
 	for _, fieldPtr := range list {
-		headerPut(style, scrWd, fieldPtr)
+		headerPut(boldSt, keySt, valSt, scrWd, fieldPtr)
 	}
 	if len(list) > 0 {
 		dsh.screen.Show()
@@ -255,7 +251,7 @@ func run() {
 			// log.Printf("internal")
 			switch up.id {
 			case updateScreen:
-				headerRender(banner)
+				headerRender(banner, plain, white)
 				dsh.screen.Sync()
 			case updateStop:
 				loop = false
@@ -411,6 +407,16 @@ func UpdateKeyVal(id int, str string) {
 // static key is specified by keyStr.
 func RegisterHeader(id, x, y, wd int, keyStr string) {
 	fieldRegister(id, &fieldType{id: id, item: itemHeader, x: x, y: y, wd: wd, str: keyStr})
+}
+
+// RegisterHeaderLine registers a dashboard static line with the identifier
+// specified by id. Its coordinates are specified by x and y. The total field's
+// width is specified by wd. A zero value for wd indicates the full width of
+// the screen, and a negative value indicates the position from the right. The
+// static key is specified by keyStr. A horizontal line is used between string
+// segments.
+func RegisterHeaderLine(id, x, y, wd int, keyStr string) {
+	fieldRegister(id, &fieldType{id: id, item: itemHeaderLine, x: x, y: y, wd: wd, str: keyStr})
 }
 
 // Run changes the screen to a dashboard. This function does not return until

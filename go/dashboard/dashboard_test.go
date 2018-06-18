@@ -73,7 +73,7 @@ func Example() {
 		dashboard.RegisterHeader(cnBannerA, 0, 0, 0, "\\tDashboard (v 0.2)")
 		dashboard.RegisterKeyVal(cnCount, 1, 1, 40, "Count")
 		dashboard.RegisterLine(cnLog, 1, 2, 5)
-		dashboard.RegisterHeader(cnBannerC, 1, 7, 40, "\\tDog")
+		dashboard.RegisterHeaderLine(cnBannerC, 1, 7, 40, "\\t Dog ")
 		dashboard.RegisterKeyVal(cnName, 1, 8, 40, "Name")
 		dashboard.RegisterHeader(cnBannerB, 0, 9, 0, " This is a banner \\t more work to do \\t Press Q to quit ")
 		go updateCount()
