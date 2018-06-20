@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gdamore/tcell"
 )
@@ -15,19 +16,23 @@ import (
 // the application to prevent panics if the application updates a field after
 // the main dashboard loop has completed.
 
-var dsh struct {
-	dotStr     string               // separation for key/value fields
-	blankStr   string               // overflow blank string to clear characters of previous string
-	diamonds   [cnMaxWidth]rune     // overflow indictor
-	lines      [cnMaxWidth]rune     // line made up of horizontal line runes
-	buf        *strings.Builder     // formatted string buffer; accessed only by 'dashboard show' goroutine
-	fieldMap   map[int]fieldPtrType // fields registered by application
-	fieldMtx   sync.Mutex           // mutex for accessing fieldMap
-	updateChan chan updateType      // dashboard updates fields based on events arriving in this channel
-	screen     tcell.Screen         // terminal screen
-	active     bool                 // update channel is active
-	activeMtx  sync.Mutex           // mutex for accessing the active flag
+type DashboardType struct {
+	dotStr        string               // separation for key/value fields
+	blankStr      string               // overflow blank string to clear characters of previous string
+	diamonds      [cnMaxWidth]rune     // overflow indictor
+	lines         [cnMaxWidth]rune     // line made up of horizontal line runes
+	buf           *strings.Builder     // formatted string buffer; accessed only by 'dashboard show' goroutine
+	fieldMap      map[int]fieldPtrType // fields registered by application
+	fieldMtx      sync.Mutex           // mutex for accessing fieldMap
+	updateChan    chan updateType      // dashboard updates fields based on events arriving in this channel
+	screen        tcell.Screen         // terminal screen
+	active        bool                 // update channel is active
+	activeMtx     sync.Mutex           // mutex for accessing the active flag
+	updateable    bool                 // update channel is active
+	updateableMtx sync.Mutex           // mutex for accessing the active flag
 }
+
+var dsh DashboardType
 
 type itemType int
 
@@ -52,14 +57,16 @@ type updateType struct {
 }
 
 type fieldType struct {
-	id      int               // user-defined field identifier
-	item    itemType          // type of field key-value, header, etc
-	str     string            // static string, may include tabs for left, center, right alignment
-	x, y    int               // starting position
-	wd      int               // width of field, 0 for entire line
-	strList []strings.Builder // series of strings for rolling logs
-	pos     int               // walk position; for log series, next strList position to fill
-	count   int               // number of builders assigned in strList
+	id         int               // user-defined field identifier
+	item       itemType          // type of field key-value, header, etc
+	str        string            // static string, may include tabs for left, center, right alignment
+	x, y       int               // starting position
+	wd         int               // width of field, 0 for entire line
+	strList    []strings.Builder // series of strings for rolling logs
+	prefixLen  int               // number of characters in strList[x] timestamp prefix
+	pos        int               // walk position; for log series, next strList position to fill
+	count      int               // number of builders assigned in strList
+	timeFmtStr string            // timestamp format, empty for no timestamp
 }
 
 type fieldPtrType *fieldType
@@ -82,7 +89,7 @@ func init() {
 	dsh.fieldMap = make(map[int]fieldPtrType)
 	dsh.updateChan = make(chan updateType, 256)
 	dsh.screen, err = tcell.NewScreen()
-	dsh.active = true
+	dsh.updateable = true
 	if err == nil {
 		// encoding.Register() // Asian encodings, adds several megabytes to application size
 	}
@@ -143,15 +150,14 @@ func put(style tcell.Style, x, y, scrWd int, strs ...string) (newX int) {
 
 func keyval(styleKey, styleVal tcell.Style, x, y, wd, scrWd int,
 	keyStr string, valStr string) {
-	dsh.buf.Reset()
 	keyLen := len(keyStr)
 	valLen := len(valStr)
 	if wd > cnMaxWidth {
 		wd = cnMaxWidth
 	}
 	if keyLen+valLen+4 <= wd {
-		put(styleKey, x, y, scrWd, keyStr, " ", dsh.dotStr[:wd-2-keyLen-valLen], " ")
-		put(styleVal, x+wd-valLen, y, scrWd, valStr)
+		x = put(styleKey, x, y, scrWd, keyStr, " ", dsh.dotStr[:wd-2-keyLen-valLen], " ")
+		put(styleVal, x, y, scrWd, valStr)
 	} else {
 		put(styleKey, x, y, scrWd, string(dsh.diamonds[:wd]))
 	}
@@ -282,6 +288,12 @@ func run() {
 					}
 					pos := fieldPtr.pos
 					fieldPtr.strList[pos].Reset()
+					if fieldPtr.timeFmtStr != "" {
+						// TODO rather than concatenate, support two string buffers for
+						// different attributes
+						fieldPtr.strList[pos].WriteString(time.Now().Format(fieldPtr.timeFmtStr))
+						fieldPtr.prefixLen = fieldPtr.strList[pos].Len()
+					}
 					fieldPtr.strList[pos].WriteString(up.str)
 					pos++
 					if pos >= size {
@@ -293,9 +305,10 @@ func run() {
 						if k >= count {
 							k -= count
 						}
-						left := fieldPtr.x
 						top := fieldPtr.y
 						str := fieldPtr.strList[k].String()
+						left := put(plain, fieldPtr.x, top+j, scrWd, str[:fieldPtr.prefixLen])
+						str = str[fieldPtr.prefixLen:]
 						length := len(str)
 						if length+left <= scrWd {
 							put(white, left, top+j, scrWd, str, dsh.blankStr[:scrWd-length-left])
@@ -367,8 +380,10 @@ func fieldRegister(id int, fldPtr fieldPtrType) {
 
 // RegisterLine registers a dashboard rolling line field with the identifier
 // specified by id. Its coordinates are specified by x and y, and the total
-// number of rows used is specified by lineCount.
-func RegisterLine(id, x, y, lineCount int) {
+// number of rows used is specified by lineCount. If timeFmt is empty, no
+// timestamp prefix will be displayed. Otherwise, it will be used to format a
+// leading timestamp.
+func RegisterLine(id, x, y, lineCount int, timeFmtStr string) {
 	var fld fieldType
 
 	fld.strList = make([]strings.Builder, lineCount)
@@ -379,6 +394,7 @@ func RegisterLine(id, x, y, lineCount int) {
 	fld.id = id
 	fld.x = x
 	fld.y = y
+	fld.timeFmtStr = timeFmtStr
 	fieldRegister(id, &fld)
 }
 
@@ -430,11 +446,20 @@ func Run(quitRunes ...rune) (err error) {
 		// log.Printf("hide cursor")
 		dsh.screen.HideCursor()
 		go listen(dsh.updateChan, dsh.screen.PollEvent, quitRunes...)
+		activeSet(true)
 		run()
+		activeSet(false)
 		log.Printf("stop\n")
 		dsh.screen.Fini()
 	}
 	return
+}
+
+// activeSet sets the active flag.
+func activeSet(active bool) {
+	dsh.activeMtx.Lock()
+	dsh.active = active
+	dsh.activeMtx.Unlock()
 }
 
 // Active returns true if the dashboard is currently active. It may be called
@@ -443,5 +468,14 @@ func Active() (active bool) {
 	dsh.activeMtx.Lock()
 	active = dsh.active
 	dsh.activeMtx.Unlock()
+	return
+}
+
+// Updateable returns true if the dashboard is currently updateable. It may be called
+// safely from other goroutines. It is typically used in application loops.
+func Updateable() (updateable bool) {
+	dsh.updateableMtx.Lock()
+	updateable = dsh.updateable
+	dsh.updateableMtx.Unlock()
 	return
 }
