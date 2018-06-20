@@ -16,7 +16,7 @@ import (
 // the application to prevent panics if the application updates a field after
 // the main dashboard loop has completed.
 
-type DashboardType struct {
+type screenType struct {
 	dotStr        string               // separation for key/value fields
 	blankStr      string               // overflow blank string to clear characters of previous string
 	diamonds      [cnMaxWidth]rune     // overflow indictor
@@ -32,7 +32,7 @@ type DashboardType struct {
 	updateableMtx sync.Mutex           // mutex for accessing the active flag
 }
 
-var dsh DashboardType
+var scr screenType
 
 type itemType int
 
@@ -79,17 +79,17 @@ const (
 func init() {
 	var err error
 	for j := 0; j < cnMaxWidth; j++ {
-		dsh.diamonds[j] = tcell.RuneDiamond
-		dsh.lines[j] = tcell.RuneHLine
+		scr.diamonds[j] = tcell.RuneDiamond
+		scr.lines[j] = tcell.RuneHLine
 	}
-	dsh.dotStr = strings.Repeat(".", cnMaxWidth)
-	dsh.blankStr = strings.Repeat(" ", cnMaxWidth)
-	dsh.buf = &strings.Builder{}
-	dsh.buf.Grow(4 * cnMaxWidth)
-	dsh.fieldMap = make(map[int]fieldPtrType)
-	dsh.updateChan = make(chan updateType, 256)
-	dsh.screen, err = tcell.NewScreen()
-	dsh.updateable = true
+	scr.dotStr = strings.Repeat(".", cnMaxWidth)
+	scr.blankStr = strings.Repeat(" ", cnMaxWidth)
+	scr.buf = &strings.Builder{}
+	scr.buf.Grow(4 * cnMaxWidth)
+	scr.fieldMap = make(map[int]fieldPtrType)
+	scr.updateChan = make(chan updateType, 256)
+	scr.screen, err = tcell.NewScreen()
+	scr.updateable = true
 	if err == nil {
 		// encoding.Register() // Asian encodings, adds several megabytes to application size
 	}
@@ -139,7 +139,7 @@ func put(style tcell.Style, x, y, scrWd int, strs ...string) (newX int) {
 	for _, str := range strs {
 		for _, r := range str {
 			if x < scrWd {
-				dsh.screen.SetContent(x, y, r, nil, style)
+				scr.screen.SetContent(x, y, r, nil, style)
 				x++
 			}
 		}
@@ -156,10 +156,10 @@ func keyval(styleKey, styleVal tcell.Style, x, y, wd, scrWd int,
 		wd = cnMaxWidth
 	}
 	if keyLen+valLen+4 <= wd {
-		x = put(styleKey, x, y, scrWd, keyStr, " ", dsh.dotStr[:wd-2-keyLen-valLen], " ")
+		x = put(styleKey, x, y, scrWd, keyStr, " ", scr.dotStr[:wd-2-keyLen-valLen], " ")
 		put(styleVal, x, y, scrWd, valStr)
 	} else {
-		put(styleKey, x, y, scrWd, string(dsh.diamonds[:wd]))
+		put(styleKey, x, y, scrWd, string(scr.diamonds[:wd]))
 	}
 }
 
@@ -206,34 +206,34 @@ func headerPut(boldSt, keySt, valSt tcell.Style, scrWd int, fld fieldPtrType) {
 		gapB = gap - gapA
 	}
 	if fld.item == itemHeader {
-		dsh.buf.Reset()
-		fmt.Fprintf(dsh.buf, "%s%s%s%s%s", list[0], dsh.blankStr[:gapA], list[1], dsh.blankStr[:gapB], list[2])
-		str := dsh.buf.String()
+		scr.buf.Reset()
+		fmt.Fprintf(scr.buf, "%s%s%s%s%s", list[0], scr.blankStr[:gapA], list[1], scr.blankStr[:gapB], list[2])
+		str := scr.buf.String()
 		put(boldSt, fld.x, fld.y, scrWd, str)
 	} else {
 		x := put(valSt, fld.x, fld.y, scrWd, list[0])
-		x = put(keySt, x, fld.y, scrWd, string(dsh.lines[:gapA]))
+		x = put(keySt, x, fld.y, scrWd, string(scr.lines[:gapA]))
 		x = put(valSt, x, fld.y, scrWd, list[1])
-		x = put(keySt, x, fld.y, scrWd, string(dsh.lines[:gapB]))
+		x = put(keySt, x, fld.y, scrWd, string(scr.lines[:gapB]))
 		put(valSt, x, fld.y, scrWd, list[2])
 	}
 }
 
 func headerRender(boldSt, keySt, valSt tcell.Style) {
 	var list []fieldPtrType
-	scrWd, _ := dsh.screen.Size()
-	dsh.fieldMtx.Lock()
-	for _, fieldPtr := range dsh.fieldMap {
+	scrWd, _ := scr.screen.Size()
+	scr.fieldMtx.Lock()
+	for _, fieldPtr := range scr.fieldMap {
 		if fieldPtr.item == itemHeader || fieldPtr.item == itemHeaderLine {
 			list = append(list, fieldPtr)
 		}
 	}
-	dsh.fieldMtx.Unlock()
+	scr.fieldMtx.Unlock()
 	for _, fieldPtr := range list {
 		headerPut(boldSt, keySt, valSt, scrWd, fieldPtr)
 	}
 	if len(list) > 0 {
-		dsh.screen.Show()
+		scr.screen.Show()
 	}
 }
 
@@ -246,19 +246,19 @@ func run() {
 	banner := tcell.StyleDefault.Foreground(tcell.ColorBlack).Background(tcell.ColorYellow)
 	// red := tcell.StyleDefault.Foreground(tcell.ColorRed)
 	// green := tcell.StyleDefault.Foreground(tcell.ColorGreen)
-	// wd, ht := dsh.screen.Size()
+	// wd, ht := scr.screen.Size()
 	// headerRender(banner)
 	loop := true
 	// walkPos := 0
 	// syncCount := 0
 	for loop {
-		up := <-dsh.updateChan
+		up := <-scr.updateChan
 		if up.internal {
 			// log.Printf("internal")
 			switch up.id {
 			case updateScreen:
 				headerRender(banner, plain, white)
-				dsh.screen.Sync()
+				scr.screen.Sync()
 			case updateStop:
 				loop = false
 			}
@@ -267,15 +267,15 @@ func run() {
 			// var st tcell.Style
 			var fieldPtr fieldPtrType
 			var ok bool
-			dsh.fieldMtx.Lock()
-			fieldPtr, ok = dsh.fieldMap[up.id]
-			dsh.fieldMtx.Unlock()
+			scr.fieldMtx.Lock()
+			fieldPtr, ok = scr.fieldMap[up.id]
+			scr.fieldMtx.Unlock()
 			if ok {
-				scrWd, _ := dsh.screen.Size()
+				scrWd, _ := scr.screen.Size()
 				// log.Printf("good field %d", up.id)
 				switch fieldPtr.item {
 				case itemKeyVal:
-					// log.Printf("dsh.keyval x %d, y %d, wd %d, key %s, val %s", fieldPtr.x,
+					// log.Printf("scr.keyval x %d, y %d, wd %d, key %s, val %s", fieldPtr.x,
 					// fieldPtr.y, fieldPtr.wd, fieldPtr.str, up.str)
 					keyval(plain, white, fieldPtr.x, fieldPtr.y, fieldPtr.wd, scrWd, fieldPtr.str, up.str)
 				case itemLine:
@@ -311,22 +311,22 @@ func run() {
 						str = str[fieldPtr.prefixLen:]
 						length := len(str)
 						if length+left <= scrWd {
-							put(white, left, top+j, scrWd, str, dsh.blankStr[:scrWd-length-left])
+							put(white, left, top+j, scrWd, str, scr.blankStr[:scrWd-length-left])
 						} else {
 							put(white, left, top+j, scrWd, str[:scrWd-left-2], "..")
 						}
 					}
 				case itemWalk:
 				}
-				dsh.screen.Show()
+				scr.screen.Show()
 			}
 		}
 
 		// switch up.id {
 		// case updateName:
-		// 	dsh.keyval(plain, white, left, 1, 40, "Name", "%s", up.str)
+		// 	scr.keyval(plain, white, left, 1, 40, "Name", "%s", up.str)
 		// case updateTime:
-		// 	dsh.keyval(plain, white, left, 9, 40, "Time", "%s", up.str)
+		// 	scr.keyval(plain, white, left, 9, 40, "Time", "%s", up.str)
 		// case updateLog:
 		// 	if logCount < cnLogCount {
 		// 		logCount++
@@ -344,9 +344,9 @@ func run() {
 		// 		str := logList[k]
 		// 		length := len(str)
 		// 		if length+left <= wd {
-		// 			put(dsh.screen, white, left, 11+j, str, blankStr[:wd-length-left])
+		// 			put(scr.screen, white, left, 11+j, str, blankStr[:wd-length-left])
 		// 		} else {
-		// 			put(dsh.screen, white, left, 11+j, str[:wd-left-2], "..")
+		// 			put(scr.screen, white, left, 11+j, str[:wd-left-2], "..")
 		// 		}
 		// 	}
 		// case updateWalk:
@@ -355,27 +355,27 @@ func run() {
 		// 	} else {
 		// 		st = red
 		// 	}
-		// 	walk(dsh.screen, plain, st, 5, walkPos, wd)
+		// 	walk(scr.screen, plain, st, 5, walkPos, wd)
 		// 	walkPos += cnWalkWidth
 		// 	if walkPos+cnWalkWidth >= wd {
 		// 		walkPos = 0
 		// 	}
 		// 		case updateScreen:
-		// 			wd, ht = dsh.screen.Size()
+		// 			wd, ht = scr.screen.Size()
 		// 			syncCount++
-		// 			dsh.keyval(dsh.screen, plain, white, left, 2, 40, "Width", "%d", wd)
-		// 			dsh.keyval(dsh.screen, plain, white, left, 3, 40, "Height", "%d", ht)
-		// 			dsh.keyval(dsh.screen, plain, white, left, 10, 40, "Sync", "%d", syncCount)
-		// 			dsh.screen.Sync()
+		// 			scr.keyval(scr.screen, plain, white, left, 2, 40, "Width", "%d", wd)
+		// 			scr.keyval(scr.screen, plain, white, left, 3, 40, "Height", "%d", ht)
+		// 			scr.keyval(scr.screen, plain, white, left, 10, 40, "Sync", "%d", syncCount)
+		// 			scr.screen.Sync()
 		// }
 	}
-	// close(dsh.quitChan)
+	// close(scr.quitChan)
 }
 
 func fieldRegister(id int, fldPtr fieldPtrType) {
-	dsh.fieldMtx.Lock()
-	dsh.fieldMap[id] = fldPtr
-	dsh.fieldMtx.Unlock()
+	scr.fieldMtx.Lock()
+	scr.fieldMap[id] = fldPtr
+	scr.fieldMtx.Unlock()
 }
 
 // RegisterLine registers a dashboard rolling line field with the identifier
@@ -400,7 +400,7 @@ func RegisterLine(id, x, y, lineCount int, timeFmtStr string) {
 
 // UpdateLine updates the rolling line field specified by id with the str.
 func UpdateLine(id int, str string) {
-	dsh.updateChan <- updateType{id: id, str: str}
+	scr.updateChan <- updateType{id: id, str: str}
 }
 
 // RegisterKeyVal registers a dashboard key/value pair with the identifier
@@ -413,7 +413,7 @@ func RegisterKeyVal(id, x, y, wd int, keyStr string) {
 // UpdateKeyVal updates the key/value pair specified by id with the value
 // specified by str.
 func UpdateKeyVal(id int, str string) {
-	dsh.updateChan <- updateType{id: id, str: str}
+	scr.updateChan <- updateType{id: id, str: str}
 }
 
 // RegisterHeader registers a dashboard static line with the identifier
@@ -440,42 +440,42 @@ func RegisterHeaderLine(id, x, y, wd int, keyStr string) {
 // time, all application logic should be handled in other goroutines that call
 // one or more of the UpdateXXX() functions to update the dashboard.
 func Run(quitRunes ...rune) (err error) {
-	err = dsh.screen.Init()
+	err = scr.screen.Init()
 	// log.Printf("start, err == nil: %v", err == nil)
 	if err == nil {
 		// log.Printf("hide cursor")
-		dsh.screen.HideCursor()
-		go listen(dsh.updateChan, dsh.screen.PollEvent, quitRunes...)
+		scr.screen.HideCursor()
+		go listen(scr.updateChan, scr.screen.PollEvent, quitRunes...)
 		activeSet(true)
 		run()
 		activeSet(false)
 		log.Printf("stop\n")
-		dsh.screen.Fini()
+		scr.screen.Fini()
 	}
 	return
 }
 
 // activeSet sets the active flag.
 func activeSet(active bool) {
-	dsh.activeMtx.Lock()
-	dsh.active = active
-	dsh.activeMtx.Unlock()
+	scr.activeMtx.Lock()
+	scr.active = active
+	scr.activeMtx.Unlock()
 }
 
 // Active returns true if the dashboard is currently active. It may be called
 // safely from other goroutines. It is typically used in application loops.
 func Active() (active bool) {
-	dsh.activeMtx.Lock()
-	active = dsh.active
-	dsh.activeMtx.Unlock()
+	scr.activeMtx.Lock()
+	active = scr.active
+	scr.activeMtx.Unlock()
 	return
 }
 
 // Updateable returns true if the dashboard is currently updateable. It may be called
 // safely from other goroutines. It is typically used in application loops.
 func Updateable() (updateable bool) {
-	dsh.updateableMtx.Lock()
-	updateable = dsh.updateable
-	dsh.updateableMtx.Unlock()
+	scr.updateableMtx.Lock()
+	updateable = scr.updateable
+	scr.updateableMtx.Unlock()
 	return
 }
