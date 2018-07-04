@@ -32,6 +32,17 @@ import (
 	"github.com/jung-kurt/etc/go/util"
 )
 
+// Test Duration methods
+func TestDuration(t *testing.T) {
+	var d util.Duration
+	var err error
+
+	err = d.Set("1.5h")
+	if err != nil {
+		t.Fatalf("error setting Duration value with flag.Value interface")
+	}
+}
+
 // Test various responses to network address parse.
 func TestJSON(t *testing.T) {
 	var strList = []string{`{"Dst": "3.5x"}`, `{"Dst": "foo"}`, `{"Wait": "12f"}`}

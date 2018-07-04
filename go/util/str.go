@@ -49,6 +49,17 @@ func (d Duration) String() string {
 	return d.Dur().String()
 }
 
+// Set implements part of the flag.Value interface.
+func (d *Duration) Set(str string) (err error) {
+	var dur time.Duration
+
+	dur, err = time.ParseDuration(str)
+	if err == nil {
+		*d = Duration(dur)
+	}
+	return
+}
+
 // MarshalJSON implements the encoding/json Marshaler interface.
 func (d Duration) MarshalJSON() (buf []byte, err error) {
 	buf = []byte("\"" + d.String() + "\"")
