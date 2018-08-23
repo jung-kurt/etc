@@ -527,3 +527,28 @@ func ExampleCaptureOutput() {
 	// line 3
 	// line 4
 }
+
+func ExampleCaptureStdOutAndErr() {
+	get, err := util.CaptureStdOutAndErr()
+	if err == nil {
+		for j := 0; j < 3; j++ {
+			fmt.Printf("line %d\n", j)
+			fmt.Fprintf(os.Stderr, "error %d\n", j)
+		}
+		outStr, errStr := get() // This terminates buffering and returns accumulated content
+		fmt.Printf("--- Stderr (%d) ---\n%s", len(errStr), errStr)
+		fmt.Printf("--- Stdout (%d)---\n%s", len(outStr), outStr)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+	}
+	// Output:
+	// --- Stderr (24) ---
+	// error 0
+	// error 1
+	// error 2
+	// --- Stdout (21)---
+	// line 0
+	// line 1
+	// line 2
+}

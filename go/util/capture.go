@@ -40,3 +40,32 @@ func CaptureOutput(fl **os.File) (get func() *strings.Builder, err error) {
 	}
 	return
 }
+
+// CaptureStdOutAndErr begins buffering the content that is written to stdout
+// and stderr. It returns a retrieval function and an error. If no error occurs
+// when setting up the buffering, that is, err is nil, the retrieval function
+// can be called to stop the buffering and obtain the accumulated output. The
+// return values of the retrieval function are the content written to stdout
+// and stderr respectively.
+func CaptureStdOutAndErr() (get func() (outStr, errStr string), err error) {
+	var outGet, errGet func() *strings.Builder
+
+	outGet, err = CaptureOutput(&os.Stdout)
+	if err == nil {
+		errGet, err = CaptureOutput(&os.Stderr)
+		if err == nil {
+			var gotten bool
+			get = func() (outStr, errStr string) {
+				if !gotten {
+					outStr = outGet().String()
+					errStr = errGet().String()
+					gotten = true
+				}
+				return
+			}
+		} else {
+			outGet() // Stop goroutine
+		}
+	}
+	return
+}
