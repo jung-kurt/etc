@@ -490,3 +490,40 @@ func ExampleLogWriter() {
 	// written with log.Print() from the standard library
 	// another simple log line
 }
+
+func ExampleCaptureOutput() {
+	var err error
+	var getOut, getErr func() *strings.Builder
+	var errBuf, outBuf *strings.Builder
+
+	getOut, err = util.CaptureOutput(&os.Stdout)
+	if err == nil {
+		getErr, err = util.CaptureOutput(&os.Stderr)
+		if err == nil {
+			for j := 0; j < 5; j++ {
+				fmt.Printf("line %d\n", j)
+				fmt.Fprintf(os.Stderr, "error %d\n", j)
+			}
+			errBuf = getErr()
+			outBuf = getOut()
+			fmt.Printf("--- Stderr (%d) ---\n%s", errBuf.Len(), errBuf.String())
+			fmt.Printf("--- Stdout (%d)---\n%s", outBuf.Len(), outBuf.String())
+		}
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+	}
+	// Output:
+	// --- Stderr (40) ---
+	// error 0
+	// error 1
+	// error 2
+	// error 3
+	// error 4
+	// --- Stdout (35)---
+	// line 0
+	// line 1
+	// line 2
+	// line 3
+	// line 4
+}
