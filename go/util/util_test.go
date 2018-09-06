@@ -552,3 +552,211 @@ func ExampleCaptureStdOutAndErr() {
 	// line 1
 	// line 2
 }
+
+// Test various JSONBuilder errors
+func TestJSONBuilder(t *testing.T) {
+	var bld util.JSONBuilder
+
+	bld.Element(1)
+	bld.Element(2)
+	if bld.Error() == nil {
+		t.Fatalf("multiple elements are root are not allowed in JSON")
+	}
+
+	bld.Reset()
+	bld.ArrayOpen()
+	bld.ObjectClose()
+	if bld.Error() == nil {
+		t.Fatalf("cannot close incorrect container type")
+	}
+
+	bld.Reset()
+	bld.ObjectClose()
+	if bld.Error() == nil {
+		t.Fatalf("cannot close unopened container")
+	}
+
+	bld.Reset()
+	bld.Element(1)
+	bld.ArrayOpen()
+	if bld.Error() == nil {
+		t.Fatalf("cannot open container in full root")
+	}
+
+	bld.Reset()
+	bld.ObjectOpen()
+	bld.ArrayOpen()
+	if bld.Error() == nil {
+		t.Fatalf("cannot open keyless array in open object")
+	}
+
+	bld.Reset()
+	bld.ArrayOpen()
+	bld.Element(1)
+	bld.ArrayOpen()
+	if bld.Error() != nil {
+		t.Fatalf("arrays within arrays are permitted")
+	}
+
+	bld.Reset()
+	bld.ObjectOpen()
+	bld.Element(1)
+	if bld.Error() == nil {
+		t.Fatalf("keyless element allowed only in empty root or open array")
+	}
+
+	bld.Reset()
+	bld.ObjectOpen()
+	bld.ObjectOpen()
+	if bld.Error() == nil {
+		t.Fatalf("keyless object cannot be opened in object")
+	}
+
+	bld.Reset()
+	bld.Element(1)
+	bld.ObjectOpen()
+	if bld.Error() == nil {
+		t.Fatalf("keyless object cannot be opened in non-empty root")
+	}
+
+	bld.Reset()
+	bld.ArrayOpen()
+	bld.Element(1)
+	bld.ObjectOpen()
+	if bld.Error() != nil {
+		t.Fatalf("objects within arrays are permitted")
+	}
+
+	bld.Reset()
+	bld.KeyElement("Num", 1)
+	if bld.Error() == nil {
+		t.Fatalf("keyed elements only permitted in objects")
+	}
+
+	bld.Reset()
+	bld.ObjectOpen()
+	bld.KeyElement("A", 1)
+	bld.KeyObjectOpen("B")
+	if bld.Error() != nil {
+		t.Fatalf("keyed objects within objects are permitted")
+	}
+
+	bld.Reset()
+	bld.ArrayOpen()
+	bld.KeyObjectOpen("A")
+	if bld.Error() == nil {
+		t.Fatalf("keyed objects only permitted in objects")
+	}
+
+	bld.Reset()
+	bld.ArrayOpen()
+	bld.Element("A")
+	_ = bld.String()
+	if bld.Error() != nil {
+		t.Fatalf("arrays should be closed automatically when String() called")
+	}
+
+}
+
+func ExampleJSONBuilder() {
+	var bld util.JSONBuilder
+
+	report := func() {
+		err := bld.Error()
+		if err == nil {
+			fmt.Printf("%s\n", bld.String())
+		} else {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			bld.Reset()
+		}
+	}
+
+	bld.ObjectOpen()
+	bld.KeyElement("ID", 42)
+	bld.KeyElement("Name", "Prairie")
+	report() // Close object automatically
+
+	bld.ObjectOpen()                 // {
+	bld.KeyObjectOpen("Alpha")       // {{
+	bld.KeyArrayOpen("List")         // {{[
+	bld.Element("Shiawassee")        // {{[
+	bld.Element(true)                // {{[
+	bld.Element(3.14)                // {{[
+	bld.ArrayClose()                 // {{
+	bld.KeyElement("Name", "Brilla") // {{
+	bld.ObjectClose()                // {
+	bld.KeyElement("Beta", 1234)     // {
+	bld.ObjectClose()                //
+	report()
+
+	// JSON-encodable structures can be elements
+	bld.Element(struct {
+		ID   int
+		Name string
+	}{22, "Tess"})
+	report()
+
+	// Output:
+	// {"ID":42,"Name":"Prairie"}
+	// {"Alpha":{"List":["Shiawassee",true,3.14],"Name":"Brilla"},"Beta":1234}
+	// {"ID":22,"Name":"Tess"}
+}
+
+// func simple(val interface{}) {
+// 	var bld JSONBuilder
+//
+// 	bld.Element(val)
+// 	fmt.Printf("JSON: %s\n", bld.String())
+// }
+//
+// func arraygen(bld *JSONBuilder, stk []int) {
+// 	if len(stk) > 0 {
+// 		bld.ArrayOpen()
+// 		for j := 0; j < stk[0]; j++ {
+// 			if len(stk) == 1 {
+// 				switch j {
+// 				case 0:
+// 					bld.Element("ok")
+// 				case 1:
+// 					bld.Element(rec.b)
+// 					rec.b = !rec.b
+// 				default:
+// 					bld.Element(j)
+// 				}
+// 			} else {
+// 				arraygen(bld, stk[1:])
+// 			}
+// 		}
+// 		bld.ArrayClose()
+// 	}
+// }
+//
+// func array(counts ...int) {
+// 	var bld JSONBuilder
+//
+// 	arraygen(&bld, counts)
+// 	report(&bld)
+// }
+//
+//
+// func customA() {
+// 	var bld JSONBuilder
+//
+// }
+//
+//
+// func customB() {
+// 	var bld JSONBuilder
+//
+// }
+//
+// func main() {
+// 	simple(42)
+// 	simple("Shiawassee")
+// 	simple(true)
+// 	simple(rec)
+// 	array(3)
+// 	array(2, 3)
+// 	array(2, 3, 2)
+// 	customA()
+// 	customB()
