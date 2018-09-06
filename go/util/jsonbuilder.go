@@ -18,7 +18,7 @@ type elementType struct {
 	count int
 }
 
-// JSONBuilder facilites the incremental construction of a JSON string. Its
+// JSONBuilder facilitates the incremental construction of a JSON string. Its
 // zero-value is ready for use.
 type JSONBuilder struct {
 	bld    strings.Builder
@@ -257,7 +257,7 @@ func (j *JSONBuilder) String() (jsonStr string) {
 	return
 }
 
-// Error returns the current internal error value. If no error has occured nil
+// Error returns the current internal error value. If no error has occurred nil
 // is returned.
 func (j *JSONBuilder) Error() (err error) {
 	return j.err
