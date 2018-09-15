@@ -83,7 +83,8 @@ func (j *JSONBuilder) pop(mustMatch int) {
 // been added to the builder instance.
 func (j *JSONBuilder) ArrayOpen() {
 	if j.err == nil {
-		if j.topPtr == nil {
+		switch {
+		case j.topPtr == nil:
 			if j.count == 0 {
 				j.count++ // No more items in base after this
 				j.push(cnArray)
@@ -91,14 +92,14 @@ func (j *JSONBuilder) ArrayOpen() {
 			} else {
 				j.errorf("multiple values are not permitted except in an object or array")
 			}
-		} else if j.topPtr.state == cnArray {
+		case j.topPtr.state == cnArray:
 			if j.topPtr.count > 0 {
 				j.bld.WriteString(",")
 			}
 			j.topPtr.count++
 			j.push(cnArray)
 			j.bld.WriteString("[")
-		} else {
+		default:
 			j.errorf("keyless array can be opened only in array or as only value in base")
 		}
 	}
@@ -122,20 +123,21 @@ func (j *JSONBuilder) Element(val interface{}) {
 	if j.err == nil {
 		b, j.err = json.Marshal(val)
 		if j.err == nil {
-			if j.topPtr == nil {
+			switch {
+			case j.topPtr == nil:
 				if j.count == 0 {
 					j.bld.Write(b)
 					j.count = 1
 				} else {
 					j.errorf("multiple values are not permitted except in an object or array")
 				}
-			} else if j.topPtr.state == cnArray {
+			case j.topPtr.state == cnArray:
 				if j.topPtr.count > 0 {
 					j.bld.WriteString(",")
 				}
 				j.bld.Write(b)
 				j.topPtr.count++
-			} else {
+			default:
 				j.errorf("keyless element can be opened only in array or as only value in base")
 			}
 		}
@@ -147,7 +149,8 @@ func (j *JSONBuilder) Element(val interface{}) {
 // been added to the builder instance.
 func (j *JSONBuilder) ObjectOpen() {
 	if j.err == nil {
-		if j.topPtr == nil {
+		switch {
+		case j.topPtr == nil:
 			if j.count == 0 {
 				j.count++ // No more items in base after this
 				j.push(cnObject)
@@ -155,14 +158,14 @@ func (j *JSONBuilder) ObjectOpen() {
 			} else {
 				j.errorf("multiple values are not permitted except in an object or array")
 			}
-		} else if j.topPtr.state == cnArray {
+		case j.topPtr.state == cnArray:
 			if j.topPtr.count > 0 {
 				j.bld.WriteString(",")
 			}
 			j.topPtr.count++
 			j.push(cnObject)
 			j.bld.WriteString("{")
-		} else {
+		default:
 			j.errorf("keyless object can be opened only in array or as only value in base")
 		}
 	}

@@ -43,16 +43,16 @@ func (fit LinearFitType) String() string {
 // location. The same number of elements will be passed to fnc, the callback
 // function, when probing. The final result, if err is nil, will contain this
 // number of elements as well. Two parameters can be adjusted to avoid
-// converging on suboptimal local minima: len specifies the simplex size, and
-// expansion (some value greater than 1) specifies the multiplier used when
+// converging on suboptimal local minima: length specifies the simplex size,
+// and expansion (some value greater than 1) specifies the multiplier used when
 // expanding the simplex.
-func DownhillSimplex(fnc func(x []float64) float64, init []float64, len, expansion float64) (res []float64, err error) {
+func DownhillSimplex(fnc func(x []float64) float64, init []float64, length, expansion float64) (res []float64, err error) {
 	var prb optimize.Problem
 	var r *optimize.Result
 
 	prb.Func = fnc
 	r, err = optimize.Local(prb, init, nil, &optimize.NelderMead{
-		SimplexSize: len,
+		SimplexSize: length,
 		Expansion:   expansion, // 1.25,
 	})
 	if err == nil {

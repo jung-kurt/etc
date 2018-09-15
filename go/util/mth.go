@@ -30,11 +30,12 @@ func Cluster(pairs []PairType, minPts int, gapX float64) [][]PairType {
 
 	for _, pr := range pairs {
 		ln = len(list)
-		if ln == 0 {
+		switch {
+		case ln == 0:
 			list = append(list, pr)
-		} else if pr.X < list[ln-1].X+gapX {
+		case pr.X < list[ln-1].X+gapX:
 			list = append(list, pr)
-		} else {
+		default:
 			place()
 			list = append(list, pr)
 		}
