@@ -87,6 +87,7 @@ func ExampleJSONPut() {
 	if err == nil {
 		err = util.JSONGetFile(fileStr, &cfg)
 		if err == nil {
+			fmt.Println(util.StrHeaderFormat(24, "", " %s ", "JSON Fields"))
 			show("Addr", "%s", cfg.Addr)
 			showDst("DstA", cfg.DstA)
 			showDst("DstB", cfg.DstB)
@@ -105,6 +106,7 @@ func ExampleJSONPut() {
 		fmt.Printf("Error %s\n", err)
 	}
 	// Output:
+	// ----- JSON Fields ------
 	// Addr......10.20.30.40:50
 	// DstA................3.50
 	// DstB................1.00

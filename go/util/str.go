@@ -332,3 +332,36 @@ func IntToStr(v int64) (str string) {
 func Int32ToStr(v int32) string {
 	return IntToStr(int64(v))
 }
+
+// StrHeader centers the string specified by str in a string of length fullLen.
+// The first character in fill surrounds the centered string. If fill is empty,
+// a dash is used. At least two fill characters are used on each side of str,
+// so the returned string may be longer than fullLen.
+func StrHeader(fullLen int, fill string, str string) (hdrStr string) {
+	var ln, lfLen, rtLen int
+	if fill == "" {
+		fill = "-"
+	} else {
+		fill = fill[:1]
+	}
+	ln = len(str)
+	if ln+4 < fullLen {
+		lfLen = (fullLen - ln) / 2
+		rtLen = fullLen - ln - lfLen
+	} else {
+		lfLen = 2
+		rtLen = 2
+	}
+	hdrStr = fmt.Sprintf("%s%s%s", strings.Repeat(fill, lfLen), str, strings.Repeat(fill, rtLen))
+	return
+}
+
+// StrHeaderFormat centers the formatted string specified by format and args in
+// a string of length fullLen. The first character in fill surrounds the
+// centered string. If fill is empty, a dash is used. At least two fill
+// characters are used on each side of str, so the returned string may be
+// longer than fullLen.
+func StrHeaderFormat(fullLen int, fill string, format string, args ...interface{}) (hdrStr string) {
+	hdrStr = StrHeader(fullLen, fill, fmt.Sprintf(format, args...))
+	return
+}
