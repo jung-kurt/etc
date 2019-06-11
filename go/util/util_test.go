@@ -63,8 +63,7 @@ func TestJSON(t *testing.T) {
 
 // Test bad source for file copy
 func TestShell(t *testing.T) {
-	var w bytes.Buffer
-	err := util.ShellBuf(&w, []byte(""), "/bin/sh", "./xyz")
+	_, err := util.ShellBuf([]byte(""), "/bin/sh", "./xyz")
 	if err == nil {
 		t.Fatalf("ShellBuf(\"./xyz\") should have generated error")
 	}
@@ -82,10 +81,10 @@ func TestFileCopy(t *testing.T) {
 func ExampleShell() {
 	var err error
 	if runtime.GOOS == "linux" {
-		var w bytes.Buffer
-		err = util.ShellBuf(&w, []byte(""), "ls", "-1")
+		var w []byte
+		w, err = util.ShellBuf([]byte(""), "ls", "-1")
 		if err == nil {
-			if w.Len() > 0 {
+			if len(w) > 0 {
 				// OK
 			} else {
 				err = fmt.Errorf("empty output from ShellBuf()")
