@@ -1,3 +1,4 @@
 golint .
-go tool vet -all .
+go vet -all .
 gofmt -s -l .
+goreportcard-cli -v

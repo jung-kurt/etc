@@ -26,6 +26,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -58,6 +59,76 @@ func TestJSON(t *testing.T) {
 			t.Fatalf("JSON \"%s\" should not have parsed successfully (%s)", str, cfg.Dst)
 		}
 	}
+}
+
+// Test bad source for file copy
+func TestShell(t *testing.T) {
+	var w bytes.Buffer
+	err := util.ShellBuf(&w, []byte(""), "/bin/sh", "./xyz")
+	if err == nil {
+		t.Fatalf("ShellBuf(\"./xyz\") should have generated error")
+	}
+}
+
+// Test bad source for file copy
+func TestFileCopy(t *testing.T) {
+	err := util.FileCopy(".", ".foo")
+	if err == nil {
+		t.Fatalf("FileCopy(\".\", \".foo\") should have generated error")
+	}
+}
+
+// This example tests the Shell routine
+func ExampleShell() {
+	var err error
+	if runtime.GOOS == "linux" {
+		var w bytes.Buffer
+		err = util.ShellBuf(&w, []byte(""), "ls", "-1")
+		if err == nil {
+			if w.Len() > 0 {
+				// OK
+			} else {
+				err = fmt.Errorf("empty output from ShellBuf()")
+			}
+		}
+	}
+	if err == nil {
+		fmt.Printf("OK\n")
+	} else {
+		fmt.Printf("%s\n", err)
+	}
+	// Output:
+	// OK
+}
+
+// This example tests the file copy routine
+func ExampleFileCopy() {
+	var err error
+	var a, b []byte
+	a = []byte("12345678")
+	err = ioutil.WriteFile("_a", a, 0600)
+	if err == nil {
+		err = util.FileCopy("_a", "_b")
+		if err == nil {
+			b, err = ioutil.ReadFile("_b")
+			if err == nil {
+				if bytes.Equal(a, b) {
+					// OK
+				} else {
+					err = fmt.Errorf("destination file unequal to source file")
+				}
+			}
+			os.Remove("_b")
+		}
+		os.Remove("_a")
+	}
+	if err == nil {
+		fmt.Printf("file copy successful\n")
+	} else {
+		fmt.Printf("%s\n", err)
+	}
+	// Output:
+	// file copy successful
 }
 
 // This example demonstrates JSON handling
