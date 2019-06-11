@@ -23,9 +23,11 @@ func FileCopy(srcFileStr, dstFileStr string) (err error) {
 				if err == nil {
 					_, err = io.Copy(dstFile, srcFile)
 					dstFile.Close()
-					// touch file with source timestamp but ignore error if any
-					tm := info.ModTime()
-					os.Chtimes(dstFileStr, tm, tm)
+					if err == nil {
+						// touch file with source timestamp but ignore error if any
+						tm := info.ModTime()
+						os.Chtimes(dstFileStr, tm, tm)
+					}
 				}
 				srcFile.Close()
 			}
