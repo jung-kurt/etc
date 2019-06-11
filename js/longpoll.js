@@ -1,3 +1,6 @@
+// Adapted from github.com/jcuga/golongpoll
+// MIT
+
 (function(jq) {
 
   'use strict';
